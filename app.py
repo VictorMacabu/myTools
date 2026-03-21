@@ -1,13 +1,28 @@
 import streamlit as st
 import os
 import uuid
-from database import Session, Projeto, Arquivo
+from database import init_db, Session, Projeto, Arquivo, TipoArquivo
 from tools.transcriber import transcrever_audio
 from tools.llm_engine import processar_chat
+
+# Inicializa o banco de dados na startup
+if "db_initialized" not in st.session_state:
+    init_db()
+    st.session_state.db_initialized = True
 
 # Configuração para ocupar a tela toda
 st.set_page_config(page_title="Ferramentas", layout="wide")
 session = Session()
+
+def get_tipo_arquivo(nome_arquivo: str) -> TipoArquivo:
+    """Identifica o tipo de arquivo pela extensão."""
+    extensao = os.path.splitext(nome_arquivo)[1].lower()
+    if extensao in ['.mp3', '.wav', '.m4a']:
+        return TipoArquivo.AUDIO
+    elif extensao == '.mp4':
+        return TipoArquivo.VIDEO
+    else:
+        return TipoArquivo.DOCUMENTO
 
 # --- CSS Customizado para melhorar a estética ---
 st.markdown("""
@@ -101,7 +116,7 @@ else:
             if st.button("📥 Salvar", use_container_width=True):
                 path = os.path.join("uploads", uploaded_file.name)
                 with open(path, "wb") as f: f.write(uploaded_file.getbuffer())
-                novo_arq = Arquivo(nome=uploaded_file.name, caminho=path, tipo=uploaded_file.type, projeto=proj_atual)
+                novo_arq = Arquivo(nome=uploaded_file.name, caminho=path, tipo=get_tipo_arquivo(uploaded_file.name), projeto=proj_atual)
                 session.add(novo_arq)
                 session.commit()
                 st.success("Salvo!")
