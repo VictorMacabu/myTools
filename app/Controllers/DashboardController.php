@@ -19,6 +19,7 @@ class DashboardController extends Controller {
 
         $activeWs = (int) ($_GET['ws'] ?? $workspaces[0]['id']);
         $activeGroup = $_GET['grupo'] ?? 'all';
+        $showFav = !empty($_GET['fav']);
 
         $wsSelected = null;
         foreach ($workspaces as $ws) {
@@ -30,23 +31,30 @@ class DashboardController extends Controller {
         if (!$wsSelected) $wsSelected = $workspaces[0];
 
         $grupos = Grupo::workspaceGrupos($activeWs);
-        $projetos = Projeto::workspaceProjects($activeWs);
 
-        if ($activeGroup !== 'all') {
-            $projetos = Projeto::workspaceProjects($activeWs, (int) $activeGroup);
+        // If favoritos filter is active, only get favoritos
+        if ($showFav) {
+            $projetos = Projeto::favorites($activeWs);
+            $favoritos = [];
+        } else {
+            // Otherwise, get all or filtered by group
+            if ($activeGroup !== 'all') {
+                $projetos = Projeto::workspaceProjects($activeWs, (int) $activeGroup);
+            } else {
+                $projetos = Projeto::workspaceProjects($activeWs);
+            }
+            $favoritos = Projeto::favorites($activeWs);
         }
 
-        $favoritos = Projeto::favorites($activeWs);
-
         $this->view('dashboard.index', [
-            'workspaces'    => $workspaces,
-            'activeWs'      => $activeWs,
-            'wsSelected'    => $wsSelected,
-            'grupos'        => $grupos,
-            'projetos'      => $projetos,
-            'favoritos'     => $favoritos,
-            'activeGroup'   => $activeGroup,
-            'showFavorites' => $_GET['fav'] ?? false,
+            'workspaces'  => $workspaces,
+            'activeWs'    => $activeWs,
+            'wsSelected'  => $wsSelected,
+            'grupos'      => $grupos,
+            'projetos'    => $projetos,
+            'favoritos'   => $favoritos,
+            'activeGroup' => $activeGroup,
+            'showFav'     => $showFav,
         ]);
     }
 }

@@ -29,41 +29,58 @@
         </button>
     </div>
 
-    <!-- Favorites section (if any) -->
-    <?php if (!empty($favoritos) && empty($_GET['grupo'])): ?>
+    <!-- Favorites section (only when showFav=true) -->
+    <?php if ($showFav): ?>
     <div class="group-label"><i class="bi bi-star-fill"></i> Favoritos</div>
     <div class="proj-grid">
-        <?php foreach ($favoritos as $p): ?>
-            <?php include __DIR__ . '/partials/_proj_card.php'; ?>
-        <?php endforeach; ?>
+        <?php if (!empty($projetos)): ?>
+            <?php foreach ($projetos as $p): ?>
+                <?php include __DIR__ . '/partials/_proj_card.php'; ?>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--text-2)">
+                <i class="bi bi-star" style="font-size:48px;margin-bottom:16px;display:block;opacity:0.5"></i>
+                <p>Nenhum projeto marcado como favorito</p>
+            </div>
+        <?php endif; ?>
     </div>
-    <?php endif; ?>
+    <?php else: ?>
+        <!-- Regular view: Favorites section (if any) -->
+        <?php if (!empty($favoritos) && empty($_GET['grupo'])): ?>
+        <div class="group-label"><i class="bi bi-star-fill"></i> Favoritos</div>
+        <div class="proj-grid">
+            <?php foreach ($favoritos as $p): ?>
+                <?php include __DIR__ . '/partials/_proj_card.php'; ?>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
 
-    <!-- All projects or group filtered -->
-    <div class="group-label"><i class="bi bi-collection"></i>
-        <?php
-        $groupNameLabel = 'Todos os projetos';
-        if ($activeGroup && $activeGroup !== 'all') {
-            foreach ($grupos as $g) {
-                if ($g['id'] == $activeGroup) {
-                    $groupNameLabel = $g['nome'];
-                    break;
+        <!-- All projects or group filtered -->
+        <div class="group-label"><i class="bi bi-collection"></i>
+            <?php
+            $groupNameLabel = 'Todos os projetos';
+            if ($activeGroup && $activeGroup !== 'all') {
+                foreach ($grupos as $g) {
+                    if ($g['id'] == $activeGroup) {
+                        $groupNameLabel = $g['nome'];
+                        break;
+                    }
                 }
             }
-        }
-        ?>
-        <?= htmlspecialchars($groupNameLabel) ?>
-    </div>
-    <div class="proj-grid">
-        <?php foreach ($projetos as $p): ?>
-            <?php include __DIR__ . '/partials/_proj_card.php'; ?>
-        <?php endforeach; ?>
-        <!-- New project card -->
-        <div class="proj-card new-proj-card" onclick="openModal('modal-new-projeto')">
-            <i class="bi bi-plus-lg proj-card__novo-icon"></i>
-            <span class="proj-card__novo-label">Novo projeto</span>
+            ?>
+            <?= htmlspecialchars($groupNameLabel) ?>
         </div>
-    </div>
+        <div class="proj-grid">
+            <?php foreach ($projetos as $p): ?>
+                <?php include __DIR__ . '/partials/_proj_card.php'; ?>
+            <?php endforeach; ?>
+            <!-- New project card -->
+            <div class="proj-card new-proj-card" onclick="openModal('modal-new-projeto')">
+                <i class="bi bi-plus-lg proj-card__novo-icon"></i>
+                <span class="proj-card__novo-label">Novo projeto</span>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
 
 <!-- Modal: Novo Workspace -->
