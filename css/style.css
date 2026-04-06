@@ -320,7 +320,7 @@ label {
   position: absolute;
   top: var(--spacing-sm);
   right: var(--spacing-sm);
-  width: var(80px);
+  
   height: var(--spacing-2xl);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, var(--opacity-card-bg));
