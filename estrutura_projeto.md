@@ -399,3 +399,247 @@ if ($showFav) {
 | Filtro de favoritos mostrava tudo | Filtro mostra apenas favoritos |
 | Não conseguia remover grupo | Botão "Sem grupo" funciona |
 | Sem feedback visual de seleção | Ícone muda cor (ouro/cinza) |
+
+---
+
+## Especificação: Melhorias na Interface e Funcionalidades Adicionais
+
+**Data**: 2026-04-06
+**Versão**: 3.0
+**Objetivo**: Expandir opções de emojis, melhorar visualização de menus, implementar edição de grupos, e funcionalidades de favoritos globais.
+
+### Problemas Corrigidos
+
+1. ✅ **Seletor de emoji com poucas opções**
+   - Modal de nova workspace tinha apenas 12 emojis
+   - Solução: Adicionados 10 novos emojis (total de 22)
+
+2. ✅ **Botão de editar grupo não visível o suficiente**
+   - Ícone de lápis era pequeno e discreto
+   - Solução: Alterado para ícone de três pontos verticais (⋮) mais visível
+
+3. ✅ **Badge de favorito visível quando menu aparecia**
+   - Overlapping visual entre fav-badge e card-menu
+   - Solução: Adicionar CSS para ocultar fav-badge no hover
+
+4. ✅ **Rota POST /api/workspaces não registrada**
+   - Erro 404 ao tentar criar workspace
+   - Solução: Registrada rota POST em index.php
+
+5. ✅ **Grupos não possuíam botão de exclusão**
+   - Usuários não conseguiam deletar grupos
+   - Solução: Adicionado botão "Excluir grupo" com confirmação
+
+### Alterações no Backend
+
+#### Router.php [Atualizado]
+- ✅ Adicionada rota `POST /api/grupo/{id}/update`
+- ✅ Adicionada rota `POST /api/workspaces` (criação de workspace)
+
+#### ApiController.php - Novos Métodos
+```php
+public function updateGrupo(int $id): void {
+    $nome = trim($_POST['nome'] ?? '');
+    if ($nome === '') {
+        $this->json(['error' => 'Nome obrigatório'], 400);
+        return;
+    }
+    Grupo::update($id, ['nome' => $nome]);
+    $this->json(['ok' => true]);
+}
+```
+
+#### ApiController.php - deleteGrupo() [Existente]
+- Método já implementado
+- Aceita POST com `_method=DELETE` para deletar grupo
+- Retorna JSON com `ok: true`
+
+### Alterações no Frontend
+
+#### dashboard/index.php - Seletor de Emoji [Atualizado]
+
+Grid de emojis expandido de 12 para 22 opções:
+
+**Emojis Originais (12):**
+- 💼 Briefcase
+- 📚 Books
+- 🎯 Target
+- 🚀 Rocket
+- 💡 Lightbulb
+- 🎨 Artist Palette
+- 📊 Bar Chart
+- 📱 Mobile Phone
+- 🏢 Office Building
+- ⚙️ Gear
+- 📝 Memo
+- 🔧 Wrench
+
+**Novos Emojis Adicionados (10):**
+- ⌚ Watch
+- ☕ Hot Beverage (Coffee)
+- ⛵ Sailboat
+- ⛹ Man with Ball
+- 🚲 Bicycle
+- 🛫 Airplane Departure
+- 🛹 Skateboard
+- 🛸 Flying Saucer
+- 🛵 Motor Scooter
+- 🤖 Robot Face
+
+#### dashboard/index.php - Barra de Filtros [Atualizado]
+
+```html
+<button type="button" onclick="event.preventDefault(); event.stopPropagation(); editGrupoForm(<?= $g['id'] ?>, '...')" title="Editar grupo">
+    <i class="bi bi-three-dots-vertical"></i>  <!-- Antes: bi-pencil-square -->
+</button>
+```
+
+**Mudanças:**
+- Ícone alterado de lápis para três pontos verticais
+- Mais visível e intuitivo
+- Permanece dentro do botão do grupo
+
+#### dashboard/index.php - Modal: Editar Grupo [NOVO]
+
+```html
+<!-- Modal: Editar Grupo -->
+<div class="modal-overlay hidden" id="modal-edit-grupo">
+    <div class="modal-box">
+        <span class="modal-close" onclick="closeModal('modal-edit-grupo')">&times;</span>
+        <div class="modal-title">Editar grupo</div>
+        <form id="form-edit-grupo" onsubmit="updateGrupo(event)">
+            <input type="hidden" id="edit-grupo-id">
+            <div style="margin-bottom:12px">
+                <label>Nome</label>
+                <input type="text" id="edit-grupo-nome" name="nome" required ...>
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
+        </form>
+        <div style="margin-top:12px">
+            <button type="button" onclick="deleteGrupo()" style="...">
+                <i class="bi bi-trash"></i> Excluir grupo
+            </button>
+        </div>
+    </div>
+</div>
+```
+
+#### app.js - Novas Funções
+
+1. **editGrupoForm(id, nome)**
+   ```javascript
+   function editGrupoForm(id, nome) {
+       document.getElementById('edit-grupo-id').value = id;
+       document.getElementById('edit-grupo-nome').value = nome;
+       openModal('modal-edit-grupo');
+   }
+   ```
+
+2. **updateGrupo(event)**
+   ```javascript
+   async function updateGrupo(e) {
+       e.preventDefault();
+       const id = document.getElementById('edit-grupo-id').value;
+       const nome = document.getElementById('edit-grupo-nome').value;
+       const fd = new FormData();
+       fd.append('nome', nome);
+       const data = await api('/api/grupo/' + id + '/update', { method: 'POST', body: fd });
+       if (data.error) { showToast(data.error, 'error'); return; }
+       closeModal('modal-edit-grupo');
+       showToast('Grupo atualizado!', 'success');
+       setTimeout(() => window.location.reload(), 500);
+   }
+   ```
+
+3. **deleteGrupo()**
+   ```javascript
+   async function deleteGrupo() {
+       if (!confirm('Tem certeza que quer excluir este grupo?')) return;
+       if (!confirm('⚠️ Aviso: Esta ação é irreversível. Continuar?')) return;
+       const id = document.getElementById('edit-grupo-id').value;
+       const data = await api('/api/grupo/' + id + '/delete', { method: 'POST' });
+       if (data.ok) {
+           closeModal('modal-edit-grupo');
+           showToast('Grupo excluído!', 'success');
+           setTimeout(() => window.location.reload(), 500);
+       }
+   }
+   ```
+
+#### css/style.css - Melhorias de Visualização
+
+```css
+.proj-card:hover .fav-badge {
+    opacity: 0;
+}
+```
+
+**Efeito:**
+- Quando usuário passa o mouse sobre o card do projeto
+- A badge de estrela "favorito" desaparece com transição suave (opacity)
+- Apenas a barra de menu com opções fica visível
+- Evita overlapping de ícones
+
+### Fluxo de Uso
+
+#### Selecionar Emoji para Nova Workspace
+1. Usuário clica "+" na sidebar
+2. Modal abre mostrando grid com 22 emojis
+3. Seleciona emoji desejado (destaque verde)
+4. Preenche nome
+5. Clica "Criar"
+6. Redirecionado para nova workspace
+
+#### Editar Nome do Grupo
+1. Usuário clica ícone ⋮ (três pontos) ao lado do grupo
+2. Modal "Editar grupo" abre
+3. Edita nome
+4. Clica "Salvar"
+5. Nome atualiza na barra de filtros
+
+#### Excluir Grupo
+1. Usuário clica ⋮ ao lado do grupo
+2. Modal "Editar grupo" abre
+3. Clica botão "Excluir grupo" (vermelho)
+4. **Primeira confirmação**: "Tem certeza que quer excluir este grupo?"
+5. **Segunda confirmação**: "⚠️ Aviso: Esta ação é irreversível. Continuar?"
+6. Se confirmado: grupo é deletado e página recarrega
+7. Projetos do grupo ficam sem grupo (grupo_id = NULL)
+
+### Funcionalidades Globais de Favoritos
+
+#### Visualizar Apenas Favoritos
+1. Clique em **"⭐ Favoritos"** na barra de filtros
+2. Mostra apenas projetos marcados como favorito da workspace atual
+3. Clique em **"Todos"** para voltar ao normal
+
+#### Marcar/Desmarcar Favorito
+- **No card**: Clique na estrela vazia/cheia
+- **No modal de editar**: Marque/desmarque checkbox "Adicionar aos favoritos"
+- Atualização é **instantânea** (sem reload)
+
+### Tabelas Utilizadas
+- `grupos` - coluna `nome` é editável e deletável
+- `projetos` - coluna `grupo_id` pode ser NULL (sem grupo)
+- `workspaces` - coluna `icone` armazena emoji, `cor` é padrão #0b0199
+
+### Integrações
+- DashboardController: Lógica de favoritos separada (showFav flag)
+- ApiController: Métodos updateGrupo() e deleteGrupo()
+- Projeto Model: Fillable inclui `criado_em` e aceita NULL em grupo_id
+- Router: Rotas dinâmicas para atualizar e deletar grupos
+
+### CSS Melhorado
+- `.card-menu` com width de 80px para conter 2 botões (estrela + menu)
+- `.fav-badge` desaparece no hover do card
+- Transição suave entre estados
+
+### Testes Realizados
+- ✅ Adicionados 10 novos emojis ao seletor (total 22)
+- ✅ Ícone de editar grupo é três pontos (⋮)
+- ✅ Modal de editar grupo funciona corretamente
+- ✅ Botão de excluir grupo com dupla confirmação
+- ✅ Badge de favorito desaparece quando menu aparece
+- ✅ Rota POST /api/workspaces registrada e funcionando
+- ✅ Filtro de favoritos mostra apenas favoritos
+- ✅ Redirecionamento para nova workspace após criação
