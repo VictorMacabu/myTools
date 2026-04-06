@@ -14,6 +14,7 @@ $router->get('/dashboard', [\App\Controllers\DashboardController::class, 'index'
 
 // API static routes
 $router->get('/api/workspaces', [\App\Controllers\ApiController::class, 'workspaces']);
+$router->post('/api/workspaces', [\App\Controllers\ApiController::class, 'createWorkspace']);
 $router->post('/api/projetos',  [\App\Controllers\ApiController::class, 'createProjeto']);
 $router->post('/api/grupos',    [\App\Controllers\ApiController::class, 'createGrupo']);
 
