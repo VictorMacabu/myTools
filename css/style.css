@@ -197,6 +197,9 @@ label {
 
 #main-content { margin-left: var(--rail-width); min-height: 100vh; }
 
+/* Remover margin quando estiver na página de projeto (proj-shell não precisa da barra lateral) */
+#main-content:has(> .proj-shell) { margin-left: 0; }
+
 /* =========================================================
    DASHBOARD
    ========================================================= */
