@@ -132,6 +132,11 @@
             </div>
             <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
         </form>
+        <div style="margin-top:12px">
+            <button type="button" onclick="deleteGrupo()" style="width:100%;padding:10px 16px;border-radius:var(--radius-md);border:1px solid var(--danger);background:var(--danger-light);color:var(--danger);cursor:pointer;font-family:var(--font-sans);font-size:14px;">
+                <i class="bi bi-trash"></i> Excluir grupo
+            </button>
+        </div>
     </div>
 </div>
 

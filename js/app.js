@@ -113,6 +113,17 @@ async function updateGrupo(e) {
     setTimeout(() => window.location.reload(), 500);
 }
 
+async function deleteGrupo() {
+    if (!confirm('Tem certeza que deseja excluir este grupo? Todos os projetos associados serão desagrupados.')) return;
+    if (!confirm('Isso não pode ser desfeito. Deseja realmente excluir?')) return;
+    const id = document.getElementById('edit-grupo-id').value;
+    const data = await api('/api/grupo/' + id + '/delete', { method: 'POST' });
+    if (data.error) { showToast(data.error, 'error'); return; }
+    closeModal('modal-edit-grupo');
+    showToast('Grupo excluído!', 'success');
+    setTimeout(() => window.location.reload(), 500);
+}
+
 // ============================================================
 //  CRUD: Projeto
 // ============================================================
