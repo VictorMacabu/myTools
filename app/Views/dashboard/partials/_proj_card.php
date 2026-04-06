@@ -12,8 +12,13 @@
     <?php endif; ?>
 
     <!-- Actions menu -->
-    <div class="card-menu" onclick="event.stopPropagation();openModal('modal-edit-projeto');fillEditForm(<?= $p['id'] ?>, '<?= htmlspecialchars($p['nome'], ENT_QUOTES) ?>')">
-        <i class="bi bi-three-dots-vertical"></i>
+    <div class="card-menu">
+        <button type="button" onclick="toggleFavorite(<?= $p['id'] ?>)" title="Marcar como favorito" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:inherit;font-size:16px">
+            <i class="bi <?= $p['favorito'] ? 'bi-star-fill' : 'bi-star' ?>" style="color:<?= $p['favorito'] ? '#d97706' : 'inherit' ?>"></i>
+        </button>
+        <button type="button" onclick="event.stopPropagation();openModal('modal-edit-projeto');fillEditForm(<?= $p['id'] ?>, '<?= htmlspecialchars($p['nome'], ENT_QUOTES) ?>')" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:inherit;font-size:16px">
+            <i class="bi bi-three-dots-vertical"></i>
+        </button>
     </div>
 
     <!-- Body -->

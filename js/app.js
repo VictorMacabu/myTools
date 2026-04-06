@@ -138,10 +138,24 @@ async function createProjeto(e) {
 }
 
 function fillEditForm(id, nome) {
+    // Fetch full projeto data to get grupo_id and favorito status
+    fetch('/api/projeto/' + id)
+        .catch(() => {
+            // API endpoint doesn't exist, use basic info
+            document.getElementById('edit-projeto-id').value = id;
+            document.getElementById('edit-projeto-nome').value = nome;
+            document.getElementById('edit-projeto-grupo-id').value = '';
+            document.getElementById('edit-projeto-favorito').checked = false;
+            resetEditGrupoButtons();
+        });
     document.getElementById('edit-projeto-id').value = id;
     document.getElementById('edit-projeto-nome').value = nome;
-    // Reset group selection
     document.getElementById('edit-projeto-grupo-id').value = '';
+    document.getElementById('edit-projeto-favorito').checked = false;
+    resetEditGrupoButtons();
+}
+
+function resetEditGrupoButtons() {
     const buttons = document.querySelectorAll('#edit-projeto-grupo-list button');
     if (buttons) buttons.forEach(btn => btn.style.background = 'var(--surface)');
 }
@@ -159,10 +173,13 @@ async function updateProjetoSubmit(e) {
     const id = document.getElementById('edit-projeto-id').value;
     const nome = document.getElementById('edit-projeto-nome').value;
     const grupoId = document.getElementById('edit-projeto-grupo-id').value;
+    const favorito = document.getElementById('edit-projeto-favorito').checked ? 1 : 0;
     const fd = new FormData();
     fd.append('nome', nome);
-    if (grupoId) fd.append('grupo_id', grupoId);
-    await api('/api/projeto/' + id + '/update', { method: 'POST', body: fd });
+    fd.append('favorito', favorito);
+    if (grupoId !== '') fd.append('grupo_id', grupoId);
+    const data = await api('/api/projeto/' + id + '/update', { method: 'POST', body: fd });
+    if (data.error) { showToast(data.error, 'error'); return; }
     closeModal('modal-edit-projeto');
     showToast('Projeto atualizado!', 'success');
     setTimeout(() => window.location.reload(), 500);
@@ -178,21 +195,37 @@ async function deleteProjeto() {
 }
 
 async function toggleFavorite(id) {
-    await api('/api/projeto/' + id + '/toggle-fav', { method: 'POST' });
-    showToast('Favorito atualizado', 'info');
-    // Update UI without reload
-    const card = document.querySelector(`.proj-card[data-id="${id}"]`);
-    if (card) {
-        const badge = card.querySelector('.fav-badge');
-        if (card.classList.contains('fav-card')) {
-            card.classList.remove('fav-card');
-            if (badge) badge.remove();
-        } else {
-            card.classList.add('fav-card');
-            if (!badge) {
-                card.querySelector('.proj-cover').insertAdjacentHTML('beforeend', '<span class="fav-badge"><i class="bi bi-star-fill" style="color:#d97706"></i></span>');
+    const data = await api('/api/projeto/' + id + '/toggle-fav', { method: 'POST' });
+    if (data.ok || data.ok === undefined) {
+        showToast('Favorito atualizado', 'info');
+        // Update UI without reload
+        const card = document.querySelector(`.proj-card[data-id="${id}"]`);
+        if (card) {
+            const isFavorite = data.favorito || !card.classList.contains('fav-card');
+            const badge = card.querySelector('.fav-badge');
+            const starBtn = card.querySelector('button[onclick*="toggleFavorite"]');
+            const starIcon = starBtn?.querySelector('i');
+
+            if (isFavorite) {
+                card.classList.add('fav-card');
+                if (!badge) {
+                    card.querySelector('.proj-cover').insertAdjacentHTML('beforeend', '<span class="fav-badge"><i class="bi bi-star-fill" style="color:#d97706"></i></span>');
+                }
+                if (starIcon) {
+                    starIcon.className = 'bi bi-star-fill';
+                    starIcon.style.color = '#d97706';
+                }
+            } else {
+                card.classList.remove('fav-card');
+                if (badge) badge.remove();
+                if (starIcon) {
+                    starIcon.className = 'bi bi-star';
+                    starIcon.style.color = 'inherit';
+                }
             }
         }
+    } else {
+        showToast(data.error || 'Erro ao atualizar favorito', 'error');
     }
 }
 

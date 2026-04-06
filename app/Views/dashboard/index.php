@@ -180,6 +180,12 @@
                 <label>Nome</label>
                 <input type="text" id="edit-projeto-nome" name="nome" required style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:var(--radius-md);font-size:14px;">
             </div>
+            <div style="margin-bottom:16px">
+                <label>
+                    <input type="checkbox" id="edit-projeto-favorito" name="favorito" style="margin-right:8px">
+                    <i class="bi bi-star-fill" style="color:#d97706"></i> Adicionar aos favoritos
+                </label>
+            </div>
             <?php if (!empty($grupos)): ?>
             <div style="margin-bottom:16px">
                 <label>Grupo</label>

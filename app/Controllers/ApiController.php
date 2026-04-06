@@ -93,6 +93,7 @@ class ApiController extends Controller {
             'workspace_id' => $ws,
             'favorito'     => isset($_POST['favorito']) ? 1 : 0,
             'grupo_id'     => isset($_POST['grupo_id']) && $_POST['grupo_id'] ? (int) $_POST['grupo_id'] : null,
+            'criado_em'    => date('Y-m-d H:i:s'),
         ]);
         $this->json(['id' => $id, 'nome' => $nome]);
     }
@@ -127,6 +128,7 @@ class ApiController extends Controller {
         $data = [];
         if (isset($_POST['nome'])) $data['nome'] = trim($_POST['nome']);
         if (isset($_POST['grupo_id'])) $data['grupo_id'] = $_POST['grupo_id'] !== '' ? (int) $_POST['grupo_id'] : null;
+        if (isset($_POST['favorito'])) $data['favorito'] = (int) $_POST['favorito'];
         if (empty($data)) {
             $this->json(['error' => 'Nenhum dado enviado'], 400);
             return;
