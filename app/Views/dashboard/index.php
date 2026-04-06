@@ -15,9 +15,14 @@
             <i class="bi bi-star-fill"></i> Favoritos
         </a>
         <?php foreach ($grupos as $g): ?>
-        <a href="<?= $basePath ?>?ws=<?= $activeWs ?>&grupo=<?= $g['id'] ?>" class="fpill <?= $activeGroup == $g['id'] ? 'active' : '' ?>">
-            <?= htmlspecialchars($g['nome']) ?>
-        </a>
+        <div style="display:flex;align-items:center;gap:4px">
+            <a href="<?= $basePath ?>?ws=<?= $activeWs ?>&grupo=<?= $g['id'] ?>" class="fpill <?= $activeGroup == $g['id'] ? 'active' : '' ?>">
+                <?= htmlspecialchars($g['nome']) ?>
+            </a>
+            <button type="button" onclick="event.preventDefault(); editGrupoForm(<?= $g['id'] ?>, '<?= htmlspecialchars($g['nome'], ENT_QUOTES) ?>')" title="Editar grupo" style="background:none;border:none;cursor:pointer;padding:0;color:var(--text-2)">
+                <i class="bi bi-pencil-square" style="font-size:12px"></i>
+            </button>
+        </div>
         <?php endforeach; ?>
         <button class="fpill" onclick="openModal('modal-new-grupo')">
             <i class="bi bi-plus"></i> Novo grupo
@@ -71,13 +76,23 @@
                 <label>Nome</label>
                 <input type="text" name="nome" placeholder="Ex: Pessoal, Trabalho..." required style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:var(--radius-md);font-size:14px;">
             </div>
-            <div style="margin-bottom:12px">
-                <label>&#205;cone (emoji)</label>
-                <input type="text" name="icone" value="&#x1F4BC;" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:var(--radius-md);font-size:14px;">
-            </div>
             <div style="margin-bottom:16px">
-                <label>Cor</label>
-                <input type="color" name="cor" value="#0b0199" style="width:50px;height:35px;border:none;cursor:pointer;border-radius:var(--radius-sm);">
+                <label>Ícone (emoji)</label>
+                <input type="hidden" id="ws-emoji-select" name="icone" value="💼">
+                <div id="ws-emoji-list" style="display:grid;grid-template-columns:repeat(6, 1fr);gap:8px;margin-top:8px">
+                    <button type="button" onclick="selectWorkspaceEmoji('💼', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--primary);background:var(--primary);cursor:pointer;font-size:20px;color:white">💼</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('📚', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📚</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🎯', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🎯</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🚀', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🚀</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('💡', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">💡</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🎨', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🎨</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('📊', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📊</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('📱', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📱</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🏢', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🏢</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('⚙️', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⚙️</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('📝', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📝</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🔧', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🔧</button>
+                </div>
             </div>
             <button type="submit" class="btn-primary" style="width:100%">Criar</button>
         </form>
@@ -100,6 +115,22 @@
                 <input type="color" name="cor" value="#e5e7eb" style="width:50px;height:35px;border:none;cursor:pointer;border-radius:var(--radius-sm);">
             </div>
             <button type="submit" class="btn-primary" style="width:100%">Criar</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Editar Grupo -->
+<div class="modal-overlay hidden" id="modal-edit-grupo">
+    <div class="modal-box">
+        <span class="modal-close" onclick="closeModal('modal-edit-grupo')">&times;</span>
+        <div class="modal-title">Editar grupo</div>
+        <form id="form-edit-grupo" onsubmit="updateGrupo(event)">
+            <input type="hidden" id="edit-grupo-id">
+            <div style="margin-bottom:12px">
+                <label>Nome</label>
+                <input type="text" id="edit-grupo-nome" name="nome" required style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:var(--radius-md);font-size:14px;">
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
         </form>
     </div>
 </div>
@@ -139,10 +170,22 @@
         <div class="modal-title">Editar projeto</div>
         <form id="form-edit-projeto" onsubmit="updateProjetoSubmit(event)">
             <input type="hidden" id="edit-projeto-id">
+            <input type="hidden" id="edit-projeto-grupo-id" name="grupo_id">
             <div style="margin-bottom:12px">
                 <label>Nome</label>
                 <input type="text" id="edit-projeto-nome" name="nome" required style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:var(--radius-md);font-size:14px;">
             </div>
+            <?php if (!empty($grupos)): ?>
+            <div style="margin-bottom:16px">
+                <label>Grupo</label>
+                <div id="edit-projeto-grupo-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                    <button type="button" onclick="event.preventDefault(); selectEditGrupo(-1)" style="padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);">Sem grupo</button>
+                    <?php foreach ($grupos as $g): ?>
+                    <button type="button" onclick="event.preventDefault(); selectEditGrupo(<?= $g['id'] ?>)" style="padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);"><?= htmlspecialchars($g['nome']) ?></button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
             <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
         </form>
         <div style="margin-top:12px">

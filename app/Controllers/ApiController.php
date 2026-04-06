@@ -23,7 +23,7 @@ class ApiController extends Controller {
         $id = \App\Models\Workspace::create([
             'nome'  => $nome,
             'icone' => $_POST['icone'] ?? '💼',
-            'cor'   => $_POST['cor'] ?? '#0b0199',
+            'cor'   => '#0b0199',
         ]);
         $this->json(['id' => $id, 'nome' => $nome]);
     }
@@ -65,6 +65,17 @@ class ApiController extends Controller {
 
     public function deleteGrupo(int $id): void {
         Grupo::delete($id);
+        $this->json(['ok' => true]);
+    }
+
+    public function updateGrupo(int $id): void {
+        $data = [];
+        if (isset($_POST['nome'])) $data['nome'] = trim($_POST['nome']);
+        if (empty($data)) {
+            $this->json(['error' => 'Nenhum dado enviado'], 400);
+            return;
+        }
+        Grupo::update($id, $data);
         $this->json(['ok' => true]);
     }
 

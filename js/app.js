@@ -58,7 +58,19 @@ async function createWorkspace(e) {
     if (data.error) { showToast(data.error, 'error'); return; }
     closeModal('modal-new-workspace');
     showToast('Área de trabalho criada!', 'success');
-    setTimeout(() => window.location.reload(), 500);
+    window.location.href = '/?ws=' + data.id;
+}
+
+function selectWorkspaceEmoji(emoji, event) {
+    event.preventDefault();
+    document.getElementById('ws-emoji-select').value = emoji;
+    const buttons = document.querySelectorAll('#ws-emoji-list button');
+    buttons.forEach(btn => {
+        btn.style.borderColor = 'var(--border)';
+        btn.style.background = 'var(--surface)';
+    });
+    event.target.style.borderColor = 'var(--primary)';
+    event.target.style.background = 'var(--primary)';
 }
 
 // ============================================================
@@ -71,6 +83,33 @@ async function createGrupo(e) {
     if (data.error) { showToast(data.error, 'error'); return; }
     closeModal('modal-new-grupo');
     showToast('Grupo criado!', 'success');
+    setTimeout(() => window.location.reload(), 500);
+}
+
+function selectGrupo(id) {
+    document.getElementById('new-projeto-grupo-id').value = id === -1 ? '' : id;
+    const buttons = document.querySelectorAll('#new-projeto-grupo-list button');
+    buttons.forEach(btn => btn.style.background = 'var(--surface)');
+    event.target.style.background = 'var(--primary)';
+    event.target.style.color = 'white';
+}
+
+function editGrupoForm(id, nome) {
+    document.getElementById('edit-grupo-id').value = id;
+    document.getElementById('edit-grupo-nome').value = nome;
+    openModal('modal-edit-grupo');
+}
+
+async function updateGrupo(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-grupo-id').value;
+    const nome = document.getElementById('edit-grupo-nome').value;
+    const fd = new FormData();
+    fd.append('nome', nome);
+    const data = await api('/api/grupo/' + id + '/update', { method: 'POST', body: fd });
+    if (data.error) { showToast(data.error, 'error'); return; }
+    closeModal('modal-edit-grupo');
+    showToast('Grupo atualizado!', 'success');
     setTimeout(() => window.location.reload(), 500);
 }
 
@@ -90,14 +129,28 @@ async function createProjeto(e) {
 function fillEditForm(id, nome) {
     document.getElementById('edit-projeto-id').value = id;
     document.getElementById('edit-projeto-nome').value = nome;
+    // Reset group selection
+    document.getElementById('edit-projeto-grupo-id').value = '';
+    const buttons = document.querySelectorAll('#edit-projeto-grupo-list button');
+    if (buttons) buttons.forEach(btn => btn.style.background = 'var(--surface)');
+}
+
+function selectEditGrupo(id) {
+    document.getElementById('edit-projeto-grupo-id').value = id === -1 ? '' : id;
+    const buttons = document.querySelectorAll('#edit-projeto-grupo-list button');
+    buttons.forEach(btn => btn.style.background = 'var(--surface)');
+    event.target.style.background = 'var(--primary)';
+    event.target.style.color = 'white';
 }
 
 async function updateProjetoSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('edit-projeto-id').value;
     const nome = document.getElementById('edit-projeto-nome').value;
+    const grupoId = document.getElementById('edit-projeto-grupo-id').value;
     const fd = new FormData();
     fd.append('nome', nome);
+    if (grupoId) fd.append('grupo_id', grupoId);
     await api('/api/projeto/' + id + '/update', { method: 'POST', body: fd });
     closeModal('modal-edit-projeto');
     showToast('Projeto atualizado!', 'success');
