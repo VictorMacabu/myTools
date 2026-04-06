@@ -312,13 +312,15 @@ label {
   right: var(--spacing-lg);
   font-size: var(--fs-icon);
   z-index: var(--z-context);
+  transition: opacity var(--transition-fast);
 }
+.proj-card:hover .fav-badge { opacity: 0; }
 
 .card-menu {
   position: absolute;
   top: var(--spacing-sm);
   right: var(--spacing-sm);
-  width: var(--spacing-3xl);
+  width: var(80px);
   height: var(--spacing-2xl);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, var(--opacity-card-bg));
