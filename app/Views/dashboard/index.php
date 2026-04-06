@@ -15,13 +15,13 @@
             <i class="bi bi-star-fill"></i> Favoritos
         </a>
         <?php foreach ($grupos as $g): ?>
-        <div style="display:flex;align-items:center;gap:4px">
-            <a href="<?= $basePath ?>?ws=<?= $activeWs ?>&grupo=<?= $g['id'] ?>" class="fpill <?= $activeGroup == $g['id'] ? 'active' : '' ?>">
+        <div style="display:flex;align-items:center;gap:0;position:relative">
+            <a href="<?= $basePath ?>?ws=<?= $activeWs ?>&grupo=<?= $g['id'] ?>" class="fpill <?= $activeGroup == $g['id'] ? 'active' : '' ?>" style="display:flex;align-items:center;gap:8px;padding-right:8px">
                 <?= htmlspecialchars($g['nome']) ?>
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); editGrupoForm(<?= $g['id'] ?>, '<?= htmlspecialchars($g['nome'], ENT_QUOTES) ?>')" title="Editar grupo" style="background:none;border:none;cursor:pointer;padding:0;color:inherit;display:flex;align-items:center;justify-content:center;width:20px;height:20px">
+                    <i class="bi bi-three-dots-vertical" style="font-size:14px"></i>
+                </button>
             </a>
-            <button type="button" onclick="event.preventDefault(); editGrupoForm(<?= $g['id'] ?>, '<?= htmlspecialchars($g['nome'], ENT_QUOTES) ?>')" title="Editar grupo" style="background:none;border:none;cursor:pointer;padding:0;color:var(--text-2)">
-                <i class="bi bi-pencil-square" style="font-size:12px"></i>
-            </button>
         </div>
         <?php endforeach; ?>
         <button class="fpill" onclick="openModal('modal-new-grupo')">
