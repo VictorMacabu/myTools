@@ -109,6 +109,16 @@
                     <button type="button" onclick="selectWorkspaceEmoji('⚙️', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⚙️</button>
                     <button type="button" onclick="selectWorkspaceEmoji('📝', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📝</button>
                     <button type="button" onclick="selectWorkspaceEmoji('🔧', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🔧</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('⌚', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⌚</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('☕', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">☕</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('⛵', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⛵</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('⛹', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⛹</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🚲', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🚲</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🛫', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛫</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🛹', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛹</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🛸', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛸</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🛵', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛵</button>
+                    <button type="button" onclick="selectWorkspaceEmoji('🤖', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🤖</button>
                 </div>
             </div>
             <button type="submit" class="btn-primary" style="width:100%">Criar</button>
