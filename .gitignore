@@ -1,0 +1,195 @@
+# =========================
+
+# 🔹 Python
+
+# =========================
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Distribuição / build
+
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+
+# 🔹 Ambiente virtual
+
+# =========================
+
+venv/
+.venv/
+env/
+ENV/
+
+# =========================
+
+# 🔹 Configuração sensível
+
+# =========================
+
+.env
+.env.*
+*.env
+
+# =========================
+
+# 🔹 Banco de dados local
+
+# =========================
+
+database/*.sqlite
+database/*.db
+*.sqlite3
+*.db
+
+# =========================
+
+# 🔹 Arquivos de log
+
+# =========================
+
+*.log
+logs/
+*.out
+
+# =========================
+
+# 🔹 Armazenamento de arquivos (CRÍTICO)
+
+# =========================
+
+# Tudo que for gerado dinamicamente no sistema
+
+storage/
+uploads/
+media/
+
+# (caso queira versionar estrutura, mas não conteúdo)
+
+# !storage/.gitkeep
+
+# =========================
+
+# 🔹 Arquivos de áudio, vídeo e mídia
+
+# =========================
+
+*.mp3
+*.wav
+*.m4a
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# =========================
+
+# 🔹 Transcrições e saídas
+
+# =========================
+
+*.txt
+*.srt
+*.vtt
+*.json
+*.md
+
+# (se quiser versionar apenas schemas, ajuste depois)
+
+# =========================
+
+# 🔹 Cache de ferramentas
+
+# =========================
+
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# Whisper / modelos
+
+models/
+*.pt
+
+# =========================
+
+# 🔹 Jupyter (caso use)
+
+# =========================
+
+.ipynb_checkpoints/
+
+# =========================
+
+# 🔹 IDEs e editores
+
+# =========================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+
+# 🔹 Sistema operacional
+
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+
+# 🔹 Testes temporários
+
+# =========================
+
+tmp/
+temp/
+*.tmp
+
+# =========================
+
+# 🔹 Node (caso frontend junto)
+
+# =========================
+
+node_modules/
+dist-frontend/
+.next/
+out/
+
+# =========================
+
+# 🔹 Docker (opcional)
+
+# =========================
+
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+
+# 🔹 Coverage
+
+# =========================
+
+.coverage
+htmlcov/
+
+# =========================
+
+# 🔹 Secrets e chaves
+
+# =========================
+
+*.pem
+*.key
+*.crt
