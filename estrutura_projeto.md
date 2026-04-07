@@ -643,3 +643,45 @@ Grid de emojis expandido de 12 para 22 opções:
 - ✅ Rota POST /api/workspaces registrada e funcionando
 - ✅ Filtro de favoritos mostra apenas favoritos
 - ✅ Redirecionamento para nova workspace após criação
+
+---
+
+## Especificação: Upload Robusto e Integração LLM
+
+**Data**: 2026-04-07
+**Versão**: 4.0
+**Objetivo**: Centralizar responsabilidade de upload no controle PHP, adicionar feedback de progresso visual e integrar chat com LLM via LM Studio.
+
+### Upload de Arquivos
+
+- Controller `ProjetoController::upload()` gerencia todo o fluxo: valida, salva, registra no banco, retorna `{success, errors}`
+- Suporte a múltiplos arquivos em uma única request (`arquivo[]`)
+- Prevenção de uploads concorrentes via lock no JS (`uploading = true/false`)
+- Indicador de progresso "X de Y arquivos" durante envio
+- Detecção de file > `post_max_size` via `CONTENT_LENGTH` check
+- Mensagens de erro por tipo: limite excedido, upload parcial, falha de disco, bloqueio de extensão
+- `classifyFileType()` reconhece: audio (mp3, wav, m4a, ogg, flac, aac), video (mp4, avi, mov, mkv, webm), imagem (jpg, png, gif, etc), documento (txt, pdf, doc, docx), tabela (csv, xlsx), transcricao (srt, vtt)
+- Log de requisições HTTP em `logs/http.log` e `logs/requests.log` para debug
+
+### Chat com LLM (LM Studio)
+
+- Endpoint `POST /api/chat` recebe `message`, `fontes[]` (IDs) e `history[]`
+- Lê conteúdo das fontes selecionadas para contexto textual
+- Se fonte tem `transcricao`, usa como contexto direto
+- Se fonte é documento de texto (txt, csv, srt, vtt, md, json), lê o arquivo
+- Áudio/vídeo sem transcrição e imagens indicam limitação textual
+- `callLMStudio()` comunica com servidor OpenAI-compatible (LM Studio)
+- Config centralizada em `app/Config/LMStudio.php`: baseUrl, modelo, timeout, temperatura, maxTokens
+- Modelo ativo: `qwen/qwen3.5-9b` em `http://127.0.0.1:1205/v1/chat/completions`
+- Indicador "Pensando..." enquanto aguarda resposta
+- Histórico de conversa mantido em memória na sessão do browser
+- Respostas renderizadas em português brasileiro
+
+### Configuração do PHP Requerida
+
+- `upload_max_filesize = 100M`
+- `post_max_size = 100M`
+- `max_execution_time = 300` (ou 0 para ilimitado)
+- `display_errors = Off`
+- `extension=curl` habilitada
+- `extension=pdo_sqlite` habilitada
