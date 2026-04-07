@@ -11,9 +11,51 @@ if (PHP_SAPI === 'cli-server') {
     ini_set('error_log', sys_get_temp_dir() . '/php_errors.log');
 }
 
+// Request/response logging
+$root = __DIR__;
+$logFile = $root . '/logs/http.log';
+$requestLogged = false;
+
+// Log request on shutdown (ensures response code is captured too)
+register_shutdown_function(function() use ($logFile) {
+    $httpCode = http_response_code();
+    if ($httpCode === false) $httpCode = 200;
+    $method = $_SERVER['REQUEST_METHOD'] ?? '?';
+    $uri    = $_SERVER['REQUEST_URI'] ?? '?';
+    $ctLen  = $_SERVER['CONTENT_LENGTH'] ?? '0';
+    $postK  = !empty($_POST) ? json_encode(array_keys($_POST)) : '[]';
+    $filesK = !empty($_FILES) ? json_encode(array_keys($_FILES)) : '[]';
+    $ferr   = (!empty($_FILES) && isset($_FILES['arquivo'])) ? $_FILES['arquivo']['error'] : null;
+    $fsize  = (!empty($_FILES) && isset($_FILES['arquivo'])) ? $_FILES['arquivo']['size'] : null;
+
+    if (!is_dir(dirname($logFile))) @mkdir(dirname($logFile), 0755, true);
+
+    $line = date('Y-m-d H:i:s')
+        . " | REQ $method $uri"
+        . " | CTLEN $ctLen"
+        . " | POST $postK"
+        . " | FILES $filesK"
+        . " | F_ERR " . json_encode($ferr)
+        . " | F_SIZE " . json_encode($fsize)
+        . " | RESP $httpCode"
+        . PHP_EOL;
+    @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+
+    // Handle fatal errors
+    if ($error = error_get_last()) {
+        if ($error['type'] === E_ERROR || $error['type'] === E_PARSE) {
+            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '';
+            if (strpos($path, '/api') === 0) {
+                header('Content-Type: application/json; charset=utf-8');
+                http_response_code(500);
+                echo json_encode(['error' => 'Erro fatal: ' . $error['message']], JSON_UNESCAPED_UNICODE);
+            }
+        }
+    }
+});
+
 // Create a custom error handler for API endpoints
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    // For API endpoints, always return JSON
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     if (strpos($path, '/api') === 0) {
         header('Content-Type: application/json; charset=utf-8');
@@ -24,27 +66,9 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    // For HTML pages, use default error handling
     return false;
 });
 
-// Handle fatal errors too
-register_shutdown_function(function() {
-    if ($error = error_get_last()) {
-        if ($error['type'] === E_ERROR || $error['type'] === E_PARSE) {
-            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-            if (strpos($path, '/api') === 0) {
-                header('Content-Type: application/json; charset=utf-8');
-                http_response_code(500);
-                echo json_encode([
-                    'error' => 'Erro fatal no servidor'
-                ], JSON_UNESCAPED_UNICODE);
-            }
-        }
-    }
-});
-
-$root = __DIR__;
 require_once $root . '/autoload.php';
 
 $router = new \App\Core\Router();

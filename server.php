@@ -8,10 +8,22 @@
  */
 
 // Suppress PHP errors to stdout/stderr before any output is sent.
-// This prevents PHP warnings (e.g. post_max_size exceeded) from leaking
-// as HTML and corrupting JSON responses on API endpoints.
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
+
+// Log all requests (including static files served by php -S)
+$logFile = __DIR__ . '/logs/requests.log';
+if (!is_dir(dirname($logFile))) @mkdir(dirname($logFile), 0755, true);
+$requestLog = date('Y-m-d H:i:s')
+    . " | REQ " . ($_SERVER['REQUEST_METHOD'] ?? '?')
+    . " " . ($_SERVER['REQUEST_URI'] ?? '?')
+    . " | CTLEN " . ($_SERVER['CONTENT_LENGTH'] ?? '0')
+    . " | FILES " . json_encode(!empty($_FILES) ? array_keys($_FILES) : [])
+    . " | F_ERR " . json_encode(
+        (!empty($_FILES) && isset($_FILES['arquivo']) ? $_FILES['arquivo']['error'] : null)
+    )
+    . PHP_EOL;
+@file_put_contents($logFile, $requestLog, FILE_APPEND | LOCK_EX);
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
