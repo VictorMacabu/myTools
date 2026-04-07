@@ -36,6 +36,12 @@ ENV/
 .env.*
 *.env
 
+# Configurações de runtime locais
+
+php.ini
+.user.ini
+*.ini
+
 # =========================
 
 # 🔹 Banco de dados local

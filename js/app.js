@@ -41,10 +41,31 @@ function showToast(msg, type = 'info') {
 //  API helper
 // ============================================================
 async function api(url, options = {}) {
+    // Build headers, but don't override Content-Type for FormData
+    const headers = {};
+
+    // Only add Accept header if not a FormData body (FormData sets its own headers)
+    if (!(options.body instanceof FormData)) {
+        headers['Accept'] = 'application/json';
+        headers['Content-Type'] = 'application/json';
+    }
+
     const res = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
+        headers,
         ...options,
     });
+
+    if (!res.ok && res.status >= 400) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            const data = await res.json();
+            throw new Error(data.error || `Erro ${res.status}`);
+        } else {
+            const text = await res.text();
+            throw new Error('Servidor retornou erro ' + res.status + ': ' + text.substring(0, 200));
+        }
+    }
+
     const ct = res.headers.get('content-type') || '';
     if (!ct.includes('application/json')) {
         const text = await res.text();
@@ -313,13 +334,33 @@ async function doUpload(fileInput) {
         try {
             const fd = new FormData();
             fd.append('arquivo', file);
-            const data = await api('/api/projeto/' + PROJETO_ID + '/upload', { method: 'POST', body: fd });
-            if (data.error) {
-                showToast(data.error, 'error');
+
+            // Direct fetch for file uploads without api() wrapper
+            const res = await fetch('/api/projeto/' + PROJETO_ID + '/upload', {
+                method: 'POST',
+                body: fd
+            });
+
+            // Check content type first
+            const contentType = res.headers.get('content-type') || '';
+            let data;
+            
+            if (contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                // Server returned non-JSON (probably an error)
+                const text = await res.text();
+                showToast('Erro: servidor retornou resposta inválida (não-JSON). Status: ' + res.status, 'error');
+                continue;
+            }
+
+            if (!res.ok || data.error) {
+                showToast(data.error || 'Erro ao enviar arquivo', 'error');
             } else {
                 addFonteToList(data);
                 uploadedCount++;
             }
+
             // Update progress
             const progressEl = document.getElementById('upload-progress');
             progressEl.innerHTML =

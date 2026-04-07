@@ -7,6 +7,12 @@
  * Everything else goes through index.php (MVC).
  */
 
+// Suppress PHP errors to stdout/stderr before any output is sent.
+// This prevents PHP warnings (e.g. post_max_size exceeded) from leaking
+// as HTML and corrupting JSON responses on API endpoints.
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // Static file serving
