@@ -22,69 +22,99 @@ class ProjetoController extends Controller {
     }
 
     public function upload(int $id): void {
-        try {
-            if (!isset($_FILES['arquivo'])) {
-                $this->json(['error' => 'Nenhum arquivo enviado.'], 400);
-                return;
-            }
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(['error' => 'Método não suportado'], 405);
+            return;
+        }
 
-            $file = $_FILES['arquivo'];
-
-            // Check for upload errors
-            if ($file['error'] !== UPLOAD_ERR_OK) {
-                $errorMessages = [
-                    UPLOAD_ERR_INI_SIZE   => 'Arquivo maior que upload_max_filesize',
-                    UPLOAD_ERR_FORM_SIZE  => 'Arquivo maior que MAX_FILE_SIZE',
-                    UPLOAD_ERR_PARTIAL    => 'Upload interrompido',
-                    UPLOAD_ERR_NO_FILE    => 'Nenhum arquivo em body',
-                    UPLOAD_ERR_NO_TMP_DIR => 'Diretório temp faltando',
-                    UPLOAD_ERR_CANT_WRITE => 'Falha ao escrever',
-                    UPLOAD_ERR_EXTENSION  => 'Extensão bloqueada',
+        // Accept single file (name="arquivo") or multiple files (name="arquivo[]")
+        $files = [];
+        if (!empty($_FILES['arquivo']) && is_array($_FILES['arquivo']['name'] ?? null)) {
+            // Multiple files
+            $count = count($_FILES['arquivo']['name']);
+            for ($i = 0; $i < $count; $i++) {
+                $files[] = [
+                    'name'     => $_FILES['arquivo']['name'][$i],
+                    'type'     => $_FILES['arquivo']['type'][$i],
+                    'tmp_name' => $_FILES['arquivo']['tmp_name'][$i],
+                    'error'    => $_FILES['arquivo']['error'][$i],
+                    'size'     => $_FILES['arquivo']['size'][$i],
                 ];
-                $msg = $errorMessages[$file['error']] ?? 'Erro desconhecido (' . $file['error'] . ')';
-                $this->json(['error' => $msg], 400);
-                return;
+            }
+        } elseif (!empty($_FILES['arquivo']) && !is_array($_FILES['arquivo']['name'] ?? null)) {
+            // Single file
+            $files[] = $_FILES['arquivo'];
+        }
+
+        if (empty($files)) {
+            // Check if POST body is empty (file rejected by PHP at core level due to size)
+            if ($_SERVER['CONTENT_LENGTH'] && (int)$_SERVER['CONTENT_LENGTH'] > 0 && empty($_FILES) && empty($_POST)) {
+                $this->json(['error' => 'Arquivo muito grande. Reduza o tamanho ou use Cortar áudio para dividir.'], 400);
+            } else {
+                $this->json(['error' => 'Nenhum arquivo enviado'], 400);
+            }
+            return;
+        }
+
+        $uploadDir = dirname(__DIR__, 2) . '/uploads/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $errorMessages = [
+            UPLOAD_ERR_INI_SIZE   => 'excede limite do servidor',
+            UPLOAD_ERR_FORM_SIZE  => 'excede limite do formulário',
+            UPLOAD_ERR_PARTIAL    => 'upload parcial, tente novamente',
+            UPLOAD_ERR_NO_TMP_DIR => 'diretório temporário indisponível',
+            UPLOAD_ERR_CANT_WRITE => 'falha ao gravar em disco',
+            UPLOAD_ERR_EXTENSION  => 'bloqueado por extensão PHP',
+        ];
+
+        $success = [];
+        $errors  = [];
+
+        foreach ($files as $file) {
+            $fileName = $file['name'] ?? 'arquivo_sem_nome';
+
+            if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+                $code = (int)$file['error'];
+                $msg  = $errorMessages[$code] ?? 'erro desconhecido';
+                $errors[] = $fileName . ': ' . $msg;
+                continue;
             }
 
-            $uploadDir = dirname(__DIR__, 2) . '/uploads/';
-            if (!is_dir($uploadDir)) {
-                if (!mkdir($uploadDir, 0755, true)) {
-                    $this->json(['error' => 'Não foi possível criar diretório de upload'], 500);
-                    return;
-                }
-            }
-
-            $uniqueName = uniqid() . '_' . basename($file['name']);
+            $uniqueName = uniqid() . '_' . basename($fileName);
             $dest = $uploadDir . $uniqueName;
 
             if (!move_uploaded_file($file['tmp_name'], $dest)) {
-                $this->json(['error' => 'Falha ao salvar arquivo'], 500);
-                return;
+                $errors[] = $fileName . ': falha ao salvar';
+                continue;
             }
 
-            $tipo = Arquivo::classifyFileType($file['name']);
+            $tipo = Arquivo::classifyFileType($fileName);
             $tamanho = (int) round($file['size'] / 1024);
 
             $arquivoId = Arquivo::create([
-                'nome'       => $file['name'],
+                'nome'       => $fileName,
                 'caminho'    => '/uploads/' . $uniqueName,
                 'tipo'       => $tipo,
                 'tamanho_kb' => $tamanho,
                 'projeto_id' => $id,
             ]);
 
-            $this->json([
+            $success[] = [
                 'id'  => $arquivoId,
-                'nome' => $file['name'],
+                'nome' => $fileName,
                 'tipo' => $tipo,
                 'caminho' => '/uploads/' . $uniqueName,
                 'tamanho_kb' => $tamanho,
-            ]);
-        } catch (\Exception $e) {
-            // Always return JSON, never HTML
-            header('Content-Type: application/json; charset=utf-8');
-            http_response_code(500);
-            echo json_encode(['error' => 'Erro ao processar upload: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            ];
         }
+
+        // Always return 200 so the UI updates — individual errors are in the response
+        $this->json([
+            'success' => $success,
+            'errors'  => $errors,
+        ]);
     }
 }

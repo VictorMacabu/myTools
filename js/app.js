@@ -322,7 +322,7 @@ function setUploadingState(isUploading) {
 }
 
 async function doUpload(fileInput) {
-    if (uploading) return; // Prevent double upload
+    if (uploading) return;
     if (!fileInput.files.length) { showToast('Selecione ao menos um arquivo', 'error'); return; }
 
     const totalFiles = fileInput.files.length;
@@ -335,33 +335,33 @@ async function doUpload(fileInput) {
             const fd = new FormData();
             fd.append('arquivo', file);
 
-            // Direct fetch for file uploads without api() wrapper
             const res = await fetch('/api/projeto/' + PROJETO_ID + '/upload', {
                 method: 'POST',
                 body: fd
             });
 
-            // Check content type first
             const contentType = res.headers.get('content-type') || '';
-            let data;
-            
-            if (contentType.includes('application/json')) {
-                data = await res.json();
-            } else {
-                // Server returned non-JSON (probably an error)
-                const text = await res.text();
-                showToast('Erro: servidor retornou resposta inválida (não-JSON). Status: ' + res.status, 'error');
+            if (!contentType.includes('application/json')) {
+                showToast('servidor retornou resposta inválida para ' + file.name, 'error');
                 continue;
             }
 
-            if (!res.ok || data.error) {
-                showToast(data.error || 'Erro ao enviar arquivo', 'error');
-            } else {
-                addFonteToList(data);
-                uploadedCount++;
+            const data = await res.json();
+
+            // Handle errors reported by controller
+            if (data.errors && data.errors.length > 0) {
+                showToast(data.errors.join(', '), 'error');
+                continue;
             }
 
-            // Update progress
+            // Each upload sends one file, so success[0] is the uploaded file
+            if (data.success && data.success.length > 0) {
+                addFonteToList(data.success[0]);
+                uploadedCount++;
+            } else {
+                showToast(data.error || 'Erro desconhecido ao enviar ' + file.name, 'error');
+            }
+
             const progressEl = document.getElementById('upload-progress');
             progressEl.innerHTML =
                 '<div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border);">' +
