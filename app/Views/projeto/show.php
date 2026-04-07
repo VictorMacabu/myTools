@@ -116,7 +116,8 @@
                 <i class="bi bi-cloud-arrow-up" style="font-size:32px;color:var(--text-3)"></i>
                 <p style="color:var(--text-3);margin:8px 0">Arraste arquivos ou clique para selecionar</p>
                 <input type="file" name="arquivo" id="file-select" multiple
-                       style="display:none" accept="audio/*,video/*,image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx">
+                       style="display:none" accept="audio/*,video/*,image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.srt,.vtt"
+                       onchange="handleFileSelect(this)">
                 <button type="button" class="btn-ghost" onclick="document.getElementById('file-select').click()" style="display:inline-flex;gap:6px;align-items:center;padding:8px 16px;cursor:pointer;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);font-family:var(--font-sans)">
                     <i class="bi bi-paperclip"></i> Selecionar arquivos
                 </button>

@@ -51,7 +51,7 @@ class ProjetoController extends Controller {
 
         $arquivoId = Arquivo::create([
             'nome'       => $file['name'],
-            'caminho'    => 'public/uploads/' . $uniqueName,
+            'caminho'    => '/uploads/' . $uniqueName,
             'tipo'       => $tipo,
             'tamanho_kb' => $tamanho,
             'projeto_id' => $id,
@@ -61,7 +61,7 @@ class ProjetoController extends Controller {
             'id'  => $arquivoId,
             'nome' => $file['name'],
             'tipo' => $tipo,
-            'caminho' => 'public/uploads/' . $uniqueName,
+            'caminho' => '/uploads/' . $uniqueName,
             'tamanho_kb' => $tamanho,
         ]);
     }

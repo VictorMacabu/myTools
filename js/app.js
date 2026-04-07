@@ -284,13 +284,11 @@ async function deleteFonte(id) {
 // ============================================================
 //  Upload
 // ============================================================
-async function uploadFonte(e) {
-    e.preventDefault();
-    const fileInput = document.getElementById('file-select');
-    if (!fileInput.files.length) { showToast('Selecione ao menos um arquivo', 'error'); return; }
+async function handleFileSelect(fileInput) {
+    if (!fileInput.files.length) return;
 
     const progressEl = document.getElementById('upload-progress');
-    progressEl.innerHTML = '<p style="color:var(--text-3);font-size:13px">Enviando...</p>';
+    progressEl.innerHTML = '<p style="color:var(--text-3);font-size:13px">Enviando ' + fileInput.files.length + ' arquivo(s)...</p>';
 
     for (const file of fileInput.files) {
         const fd = new FormData();
@@ -299,18 +297,26 @@ async function uploadFonte(e) {
             const data = await api('/api/projeto/' + PROJETO_ID + '/upload', { method: 'POST', body: fd });
             if (data.error) {
                 progressEl.innerHTML += '<p style="color:var(--danger)">' + data.error + '</p>';
+                showToast(data.error, 'error');
             } else {
                 addFonteToList(data);
+                showToast(file.name + ' adicionado!', 'success');
             }
         } catch (err) {
             progressEl.innerHTML += '<p style="color:var(--danger)">Erro: ' + err.message + '</p>';
+            showToast('Erro ao enviar ' + file.name, 'error');
         }
     }
-    setTimeout(() => {
-        closeModal('modal-add-fonte');
-        progressEl.innerHTML = '';
-        if (fileInput) fileInput.value = '';
-    }, 1200);
+
+    // Clear input but keep modal open so user can add more
+    fileInput.value = '';
+}
+
+async function uploadFonte(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('file-select');
+    if (!fileInput.files.length) { showToast('Selecione ao menos um arquivo', 'error'); return; }
+    handleFileSelect(fileInput);
 }
 
 function addFonteToList(data) {
