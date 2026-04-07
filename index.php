@@ -54,8 +54,12 @@ register_shutdown_function(function() use ($logFile) {
     }
 });
 
-// Create a custom error handler for API endpoints
+// Custom error handler: intercept errors but ignore deprecation warnings
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    // Ignore E_DEPRECATED and E_NOTICE — they are not fatal
+    if (in_array($errno, [E_DEPRECATED, E_NOTICE, E_WARNING], true)) {
+        return false; // Let PHP handle normally
+    }
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     if (strpos($path, '/api') === 0) {
         header('Content-Type: application/json; charset=utf-8');

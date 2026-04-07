@@ -320,7 +320,7 @@ class ApiController extends Controller {
         $raw = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err = curl_error($ch);
-        curl_close($ch);
+        // curl_close() omitted — deprecated and no-op since PHP 8.0
 
         if ($err) {
             return [
