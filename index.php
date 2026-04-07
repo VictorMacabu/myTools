@@ -59,5 +59,8 @@ $router->post('/api/workspaces', [\App\Controllers\ApiController::class, 'create
 $router->post('/api/projetos',  [\App\Controllers\ApiController::class, 'createProjeto']);
 $router->post('/api/grupos',    [\App\Controllers\ApiController::class, 'createGrupo']);
 
+// Chat with LLM
+$router->post('/api/chat', [\App\Controllers\ApiController::class, 'chat']);
+
 // Dynamic routes handled by pattern matching in resolve()
 $router->resolve();

@@ -424,6 +424,8 @@ function getFileIcon(tipo) {
 // ============================================================
 //  Chat
 // ============================================================
+let chatHistory = [];
+
 async function sendChatMessage() {
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
@@ -436,9 +438,41 @@ async function sendChatMessage() {
     container.innerHTML += '<div class="msg-user">' + escapeHtml(msg) + '</div>';
     input.value = '';
 
-    const fontesList = Array.from(selectedFontes);
-    container.innerHTML += '<div class="msg-assistant"><em>Resposta simulada — chat será integrado com LLM. Fontes: ' + fontesList.join(', ') + '</em></div>';
+    // Show typing indicator
+    const typingId = 'typing-' + Date.now();
+    container.innerHTML += '<div class="msg-assistant" id="' + typingId + '"><em><i class="bi bi-hourglass-split"></i> Pensando...</em></div>';
     container.scrollTop = container.scrollHeight;
+
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: msg,
+                fontes: Array.from(selectedFontes),
+                history: chatHistory,
+            })
+        });
+
+        const data = await res.json();
+
+        const typing = document.getElementById(typingId);
+        if (typing) typing.remove();
+
+        if (data.error) {
+            container.innerHTML += '<div class="msg-assistant"><em>Erro: ' + escapeHtml(data.error) + '</em></div>';
+        } else {
+            container.innerHTML += '<div class="msg-assistant">' + escapeHtml(data.reply) + '</div>';
+            chatHistory.push({ role: 'user', message: msg });
+            chatHistory.push({ role: 'assistant', message: data.reply });
+        }
+        container.scrollTop = container.scrollHeight;
+    } catch (err) {
+        const typing = document.getElementById(typingId);
+        if (typing) typing.remove();
+        container.innerHTML += '<div class="msg-assistant"><em>Erro de conexão: ' + escapeHtml(err.message) + '</em></div>';
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
 function escapeHtml(text) {

@@ -1,10 +1,11 @@
 <?php
 namespace App\Controllers;
 
+use App\Config\LMStudio;
 use App\Core\Controller;
+use App\Models\Arquivo;
 use App\Models\Grupo;
 use App\Models\Projeto;
-use App\Models\Arquivo;
 
 class ApiController extends Controller {
 
@@ -170,5 +171,180 @@ class ApiController extends Controller {
         }
         Arquivo::update($id, $data);
         $this->json(['ok' => true]);
+    }
+
+    // --- Chat com LLM (LM Studio) ---
+
+    /**
+     * POST /api/chat
+     *
+     * Body (JSON):
+     *   - message: string (obrigatório)
+     *   - fontes: int[] (IDs das fontes selecionadas para contexto)
+     *   - history: array[{role, content}] (histórico opcional da conversa)
+     */
+    public function chat(): void {
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true);
+
+        $message = trim($body['message'] ?? '');
+        if ($message === '') {
+            $this->json(['error' => 'Mensagem obrigatória'], 400);
+            return;
+        }
+
+        $fontesIds = is_array($body['fontes'] ?? null) ? $body['fontes'] : [];
+        $history   = is_array($body['history'] ?? null) ? $body['history'] : [];
+
+        // Ler conteúdo das fontes selecionadas para contexto
+        $context = $this->buildContextFromFontes($fontesIds);
+
+        // Montar system prompt com contexto das fontes
+        $systemPrompt = 'Você é um assistente de análise documental.';
+        if ($context !== '') {
+            $systemPrompt .= "\n\nFontes selecionadas pelo usuário:\n" . $context;
+        }
+        $systemPrompt .= "\n\nResponda em português brasileiro. Seja conciso e direto.";
+
+        // Montar mensagens para a API
+        $messages = [];
+        $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+
+        // Histórico anterior
+        foreach ($history as $h) {
+            $role = in_array($h['role'], ['user', 'assistant', 'system'], true) ? $h['role'] : 'user';
+            $messages[] = ['role' => $role, 'content' => $h['message'] ?? $h['content'] ?? ''];
+        }
+
+        // Mensagem atual
+        $messages[] = ['role' => 'user', 'content' => $message];
+
+        // Chamar LM Studio
+        $response = $this->callLMStudio($messages);
+        if (is_array($response) && isset($response['error'])) {
+            $this->json($response, 502);
+            return;
+        }
+
+        $this->json(['reply' => $response]);
+    }
+
+    /**
+     * Lê conteúdo dos arquivos-fonte e monta contexto em texto.
+     */
+    private function buildContextFromFontes(array $fontesIds): string {
+        if (empty($fontesIds)) return '';
+
+        $root = dirname(__DIR__, 2);
+        $parts = [];
+
+        foreach ($fontesIds as $id) {
+            $fonte = Arquivo::find((int)$id);
+            if (!$fonte) continue;
+
+            $entry = '## ' . $fonte['nome'] . ' (tipo: ' . $fonte['tipo'] . ")\n";
+
+            // Transcrição existente — usar como conteúdo
+            if (!empty($fonte['transcricao'])) {
+                $entry .= $fonte['transcricao'];
+                $parts[] = $entry;
+                continue;
+            }
+
+            // Ler conteúdo de documentos de texto
+            $readableTypes = ['documento', 'transcricao'];
+            if (in_array($fonte['tipo'], $readableTypes, true)) {
+                $fullPath = $root . str_replace('/', DIRECTORY_SEPARATOR, $fonte['caminho']);
+                if (file_exists($fullPath)) {
+                    $ext = strtolower(pathinfo($fonte['nome'], PATHINFO_EXTENSION));
+                    if (in_array($ext, ['txt', 'csv', 'srt', 'vtt', 'md', 'json'], true)) {
+                        $content = file_get_contents($fullPath);
+                        // Truncate very large files (first 30k chars)
+                        $entry .= mb_substr($content, 0, 30000);
+                        $parts[] = $entry;
+                    } elseif (in_array($ext, ['xlsx', 'xls'], true)) {
+                        $entry .= '(arquivo Excel — conteúdo binário, não legível como texto)';
+                        $parts[] = $entry;
+                    }
+                }
+                continue;
+            }
+
+            // Áudio/vídeo sem transcrição — indicar que não foi possível ler
+            if (in_array($fonte['tipo'], ['audio', 'video'], true)) {
+                $entry .= '(conteúdo multimídia — necessita transcrição para análise textual)';
+                $parts[] = $entry;
+            }
+
+            // Imagens
+            if ($fonte['tipo'] === 'imagem') {
+                $entry .= '(conteúdo de imagem — não legível como texto)';
+                $parts[] = $entry;
+            }
+        }
+
+        return implode("\n\n---\n\n", $parts);
+    }
+
+    /**
+     * Chama LM Studio (OpenAI-compatible) e retorna a resposta.
+     * Retorna string com o conteúdo da mensagem ou array ['error' => ...].
+     */
+    private function callLMStudio(array $messages): string|array {
+        $payload = [
+            'model'      => LMStudio::$model ?: null,
+            'messages'   => $messages,
+            'temperature' => LMStudio::$temperature,
+            'max_tokens'  => LMStudio::$maxTokens,
+        ];
+        // Remove null model to use currently loaded model
+        if ($payload['model'] === null) unset($payload['model']);
+
+        $ch = curl_init();
+        if ($ch === false) {
+            return ['error' => 'cURL não está habilitado no PHP'];
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => LMStudio::$baseUrl,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => LMStudio::$timeout,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json; charset=utf-8',
+                'Authorization: Bearer ' . LMStudio::apiKey(),
+            ],
+        ]);
+
+        $raw = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) {
+            return [
+                'error' => 'Não foi possível conectar ao LM Studio. Verifique se o servidor está rodando em ' . LMStudio::$baseUrl . '. (' . rtrim($err, '.') . ')',
+            ];
+        }
+
+        $decoded = json_decode($raw, true);
+        if ($decoded === null) {
+            return ['error' => 'Resposta inválida do LM Studio'];
+        }
+
+        // Check for LM Studio error response
+        if (isset($decoded['error'])) {
+            $msg = $decoded['error']['message'] ?? 'Erro desconhecido do LM Studio';
+            return ['error' => $msg];
+        }
+
+        // Extract assistant reply
+        $content = $decoded['choices'][0]['message']['content'] ?? '';
+        if ($content === '') {
+            return '(sem resposta — o modelo pode ter gerado apenas tokens de vazio)';
+        }
+
+        return $content;
     }
 }
