@@ -34,7 +34,7 @@ function showToast(msg, type = 'info') {
     t.className = 'toast ' + type;
     t.textContent = msg;
     container.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
 }
 
 // ============================================================
@@ -45,6 +45,11 @@ async function api(url, options = {}) {
         headers: { 'Accept': 'application/json' },
         ...options,
     });
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+        const text = await res.text();
+        throw new Error('Servidor retornou HTML (erro ' + res.status + '). Resposta: ' + text.substring(0, 200));
+    }
     return res.json();
 }
 
@@ -63,7 +68,8 @@ async function createWorkspace(e) {
 
 function selectWorkspaceEmoji(emoji, event) {
     event.preventDefault();
-    document.getElementById('ws-emoji-select').value = emoji;
+    const sel = document.getElementById('ws-emoji-select');
+    if (sel) sel.value = emoji;
     const buttons = document.querySelectorAll('#ws-emoji-list button');
     buttons.forEach(btn => {
         btn.style.borderColor = 'var(--border)';
@@ -138,20 +144,11 @@ async function createProjeto(e) {
 }
 
 function fillEditForm(id, nome) {
-    // Fetch full projeto data to get grupo_id and favorito status
-    fetch('/api/projeto/' + id)
-        .catch(() => {
-            // API endpoint doesn't exist, use basic info
-            document.getElementById('edit-projeto-id').value = id;
-            document.getElementById('edit-projeto-nome').value = nome;
-            document.getElementById('edit-projeto-grupo-id').value = '';
-            document.getElementById('edit-projeto-favorito').checked = false;
-            resetEditGrupoButtons();
-        });
     document.getElementById('edit-projeto-id').value = id;
     document.getElementById('edit-projeto-nome').value = nome;
     document.getElementById('edit-projeto-grupo-id').value = '';
-    document.getElementById('edit-projeto-favorito').checked = false;
+    const fav = document.getElementById('edit-projeto-favorito');
+    if (fav) fav.checked = false;
     resetEditGrupoButtons();
 }
 
@@ -173,11 +170,11 @@ async function updateProjetoSubmit(e) {
     const id = document.getElementById('edit-projeto-id').value;
     const nome = document.getElementById('edit-projeto-nome').value;
     const grupoId = document.getElementById('edit-projeto-grupo-id').value;
-    const favorito = document.getElementById('edit-projeto-favorito').checked ? 1 : 0;
     const fd = new FormData();
     fd.append('nome', nome);
-    fd.append('favorito', favorito);
     if (grupoId !== '') fd.append('grupo_id', grupoId);
+    const fav = document.getElementById('edit-projeto-favorito');
+    if (fav) fd.append('favorito', fav.checked ? 1 : 0);
     const data = await api('/api/projeto/' + id + '/update', { method: 'POST', body: fd });
     if (data.error) { showToast(data.error, 'error'); return; }
     closeModal('modal-edit-projeto');
@@ -196,36 +193,19 @@ async function deleteProjeto() {
 
 async function toggleFavorite(id) {
     const data = await api('/api/projeto/' + id + '/toggle-fav', { method: 'POST' });
-    if (data.ok || data.ok === undefined) {
-        showToast('Favorito atualizado', 'info');
-        // Update UI without reload
-        const card = document.querySelector(`.proj-card[data-id="${id}"]`);
-        if (card) {
-            const isFavorite = data.favorito || !card.classList.contains('fav-card');
-            const badge = card.querySelector('.fav-badge');
-            const starBtn = card.querySelector('button[onclick*="toggleFavorite"]');
-            const starIcon = starBtn?.querySelector('i');
-
-            if (isFavorite) {
-                card.classList.add('fav-card');
-                if (!badge) {
-                    card.querySelector('.proj-cover').insertAdjacentHTML('beforeend', '<span class="fav-badge"><i class="bi bi-star-fill" style="color:#d97706"></i></span>');
-                }
-                if (starIcon) {
-                    starIcon.className = 'bi bi-star-fill';
-                    starIcon.style.color = '#d97706';
-                }
-            } else {
-                card.classList.remove('fav-card');
-                if (badge) badge.remove();
-                if (starIcon) {
-                    starIcon.className = 'bi bi-star';
-                    starIcon.style.color = 'inherit';
-                }
+    showToast('Favorito atualizado', 'info');
+    const card = document.querySelector(`.proj-card[data-id="${id}"]`);
+    if (card) {
+        const badge = card.querySelector('.fav-badge');
+        if (card.classList.contains('fav-card')) {
+            card.classList.remove('fav-card');
+            if (badge) badge.remove();
+        } else {
+            card.classList.add('fav-card');
+            if (!badge) {
+                card.querySelector('.proj-cover').insertAdjacentHTML('beforeend', '<span class="fav-badge"><i class="bi bi-star-fill" style="color:#d97706"></i></span>');
             }
         }
-    } else {
-        showToast(data.error || 'Erro ao atualizar favorito', 'error');
     }
 }
 
@@ -252,7 +232,7 @@ function updateChatState() {
     const msg = document.getElementById('chat-disabled-msg');
     const form = document.getElementById('chat-form');
 
-    if (!dot) return; // not on project page
+    if (!dot) return;
 
     if (count > 0) {
         dot.classList.remove('off');
@@ -284,60 +264,107 @@ async function deleteFonte(id) {
 // ============================================================
 //  Upload
 // ============================================================
-async function handleFileSelect(fileInput) {
-    if (!fileInput.files.length) return;
+let uploading = false; // Prevent concurrent uploads
 
+function setUploadingState(isUploading) {
+    uploading = isUploading;
+    const fileInput = document.getElementById('file-select');
+    const selectBtn = document.querySelector('#modal-add-fonte button[onclick*="file-select"]');
     const progressEl = document.getElementById('upload-progress');
-    progressEl.innerHTML = '<p style="color:var(--text-3);font-size:13px">Enviando ' + fileInput.files.length + ' arquivo(s)...</p>';
+
+    // Also update all project page add-fonte buttons
+    document.querySelectorAll('.tool-btn[onclick*="modal-add-fonte"], .panel-header .add-btn[onclick*="modal-add-fonte"]').forEach(btn => {
+        btn.disabled = isUploading;
+        btn.style.opacity = isUploading ? '0.5' : '1';
+        btn.style.pointerEvents = isUploading ? 'none' : 'auto';
+    });
+
+    if (fileInput) fileInput.disabled = isUploading;
+
+    if (isUploading) {
+        if (selectBtn) {
+            selectBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando...';
+            selectBtn.style.opacity = '0.5';
+        }
+        progressEl.innerHTML =
+            '<div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border);">' +
+                '<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> Enviando arquivos...' +
+            '</div>';
+    } else {
+        if (selectBtn) {
+            selectBtn.innerHTML = '<i class="bi bi-paperclip"></i> Selecionar arquivos';
+            selectBtn.style.opacity = '1';
+        }
+        progressEl.innerHTML = '';
+        fileInput.value = '';
+    }
+}
+
+async function doUpload(fileInput) {
+    if (uploading) return; // Prevent double upload
+    if (!fileInput.files.length) { showToast('Selecione ao menos um arquivo', 'error'); return; }
+
+    const totalFiles = fileInput.files.length;
+    setUploadingState(true);
+
+    let uploadedCount = 0;
 
     for (const file of fileInput.files) {
-        const fd = new FormData();
-        fd.append('arquivo', file);
         try {
+            const fd = new FormData();
+            fd.append('arquivo', file);
             const data = await api('/api/projeto/' + PROJETO_ID + '/upload', { method: 'POST', body: fd });
             if (data.error) {
-                progressEl.innerHTML += '<p style="color:var(--danger)">' + data.error + '</p>';
                 showToast(data.error, 'error');
             } else {
                 addFonteToList(data);
-                showToast(file.name + ' adicionado!', 'success');
+                uploadedCount++;
             }
+            // Update progress
+            const progressEl = document.getElementById('upload-progress');
+            progressEl.innerHTML =
+                '<div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border);">' +
+                    '<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> ' +
+                    (uploadedCount + 1) + ' de ' + totalFiles +
+                '</div>';
         } catch (err) {
-            progressEl.innerHTML += '<p style="color:var(--danger)">Erro: ' + err.message + '</p>';
-            showToast('Erro ao enviar ' + file.name, 'error');
+            showToast('Erro ao enviar ' + file.name + ': ' + err.message, 'error');
         }
     }
 
-    // Clear input but keep modal open so user can add more
-    fileInput.value = '';
+    setUploadingState(false);
+
+    if (uploadedCount > 0) {
+        showToast(uploadedCount + ' arquivo(s) adicionado(s)!', 'success');
+    }
 }
 
 async function uploadFonte(e) {
     e.preventDefault();
     const fileInput = document.getElementById('file-select');
-    if (!fileInput.files.length) { showToast('Selecione ao menos um arquivo', 'error'); return; }
-    handleFileSelect(fileInput);
+    doUpload(fileInput);
 }
+
+handleFileSelect = doUpload; // Alias for the inline handler
 
 function addFonteToList(data) {
     const list = document.getElementById('fontes-list');
     const emptyEl = list.querySelector('i.bi-inbox');
-    if (emptyEl) emptyEl.closest('div').remove();
+    if (emptyEl && emptyEl.parentElement) emptyEl.parentElement.remove();
 
     const div = document.createElement('div');
     div.className = 'fonte-item';
     div.dataset.id = data.id;
     div.dataset.tipo = data.tipo;
     div.onclick = function() { toggleFonte(this, data.id); };
-    div.innerHTML = `
-        <div class="fonte-check"></div>
-        <i class="bi ${getFileIcon(data.tipo)} fonte-icon"></i>
-        <div class="fonte-info">
-            <div class="fonte-nome">${data.nome}</div>
-            <div class="fonte-tipo">${data.tipo} &middot; ${data.tamanho_kb} KB</div>
-        </div>
-        <button class="fonte-del" onclick="event.stopPropagation();deleteFonte(${data.id})" title="Remover"><i class="bi bi-x"></i></button>
-    `;
+    div.innerHTML =
+        '<div class="fonte-check"></div>' +
+        '<i class="bi ' + getFileIcon(data.tipo) + ' fonte-icon"></i>' +
+        '<div class="fonte-info">' +
+            '<div class="fonte-nome">' + data.nome + '</div>' +
+            '<div class="fonte-tipo">' + data.tipo + ' &middot; ' + data.tamanho_kb + ' KB</div>' +
+        '</div>' +
+        '<button class="fonte-del" onclick="event.stopPropagation();deleteFonte(' + data.id + ')" title="Remover"><i class="bi bi-x"></i></button>';
     list.appendChild(div);
 }
 
@@ -365,11 +392,11 @@ async function sendChatMessage() {
     const placeholder = document.getElementById('chat-placeholder');
     if (placeholder) placeholder.remove();
 
-    container.innerHTML += `<div class="msg-user">${escapeHtml(msg)}</div>`;
+    container.innerHTML += '<div class="msg-user">' + escapeHtml(msg) + '</div>';
     input.value = '';
 
     const fontesList = Array.from(selectedFontes);
-    container.innerHTML += `<div class="msg-assistant"><em>Resposta simulada — chat será integrado com LLM. Fontes: ${fontesList.join(', ')}</em></div>`;
+    container.innerHTML += '<div class="msg-assistant"><em>Resposta simulada — chat será integrado com LLM. Fontes: ' + fontesList.join(', ') + '</em></div>';
     container.scrollTop = container.scrollHeight;
 }
 
@@ -396,7 +423,7 @@ async function openAudioCutter() {
     const audios = FONTES.filter(f => f.tipo === 'audio' || f.tipo === 'video');
     select.innerHTML = '<option value="">Selecione um áudio...</option>';
     audios.forEach(a => {
-        select.innerHTML += `<option value="${a.id}" data-caminho="${a.caminho}">${a.nome} (${a.tamanho_kb} KB)</option>`;
+        select.innerHTML += '<option value="' + a.id + '" data-caminho="' + a.caminho + '">' + a.nome + ' (' + a.tamanho_kb + ' KB)</option>';
     });
     document.getElementById('cortar-audio-controls').classList.add('hidden');
 
@@ -404,7 +431,6 @@ async function openAudioCutter() {
         const id = this.value;
         if (!id) { document.getElementById('cortar-audio-controls').classList.add('hidden'); return; }
         document.getElementById('cortar-audio-controls').classList.remove('hidden');
-        // Set duration from file (will need backend call for actual duration)
         document.getElementById('cortar-start').value = 0;
         document.getElementById('cortar-end').value = 100;
         updateCutterLabels();
@@ -423,13 +449,12 @@ function updateCutterLabels() {
 function formatTime(sec) {
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
-    return `${m}:${String(s).padStart(2, '0')}`;
+    return m + ':' + String(s).padStart(2, '0');
 }
 
 async function cortarAudio() {
     const select = document.getElementById('cortar-audio-select');
     if (!select.value) return;
-    const nome = document.getElementById('cortar-nome').value || 'trecho_cortado.mp3';
     showToast('Corte de áudio: funcionalidade em integração com pydub', 'info');
 }
 
@@ -442,9 +467,8 @@ async function openMediaViewer() {
     const select = document.getElementById('media-select');
     const media = FONTES.filter(f => f.tipo === 'audio' || f.tipo === 'video');
     select.innerHTML = '<option value="">Selecionar arquivo...';
-
     media.forEach(a => {
-        select.innerHTML += `<option value="${a.caminho}" data-tipo="${a.tipo}">${a.nome}</option>`;
+        select.innerHTML += '<option value="' + a.caminho + '" data-tipo="' + a.tipo + '">' + a.nome + '</option>';
     });
     document.getElementById('media-container').innerHTML = '';
 
@@ -454,9 +478,9 @@ async function openMediaViewer() {
         if (!path) { container.innerHTML = ''; return; }
         const tipo = this.options[this.selectedIndex].dataset.tipo;
         if (tipo === 'audio') {
-            container.innerHTML = `<audio controls src="${path}" style="width:100%;margin-top:12px"></audio>`;
+            container.innerHTML = '<audio controls src="' + path + '" style="width:100%;margin-top:12px"></audio>';
         } else if (tipo === 'video') {
-            container.innerHTML = `<video controls src="${path}" style="width:100%;max-height:60vh;margin-top:12px"></video>`;
+            container.innerHTML = '<video controls src="' + path + '" style="width:100%;max-height:60vh;margin-top:12px"></video>';
         } else {
             container.innerHTML = '<p style="color:var(--text-3)">Arquivo selecionado não é compatível com player</p>';
         }
@@ -473,14 +497,14 @@ async function openImageViewer() {
     const images = FONTES.filter(f => f.tipo === 'imagem');
     select.innerHTML = '<option value="">Selecionar imagem...';
     images.forEach(a => {
-        select.innerHTML += `<option value="${a.caminho}">${a.nome}</option>`;
+        select.innerHTML += '<option value="' + a.caminho + '">' + a.nome + '</option>';
     });
     document.getElementById('image-container').innerHTML = '';
 
     select.onchange = function() {
         const container = document.getElementById('image-container');
         if (!this.value) { container.innerHTML = ''; return; }
-        container.innerHTML = `<img src="${this.value}" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:var(--radius-lg)">`;
+        container.innerHTML = '<img src="' + this.value + '" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:var(--radius-lg)">';
     };
 }
 
@@ -494,7 +518,7 @@ async function openTextEditor() {
     const docs = FONTES.filter(f => ['documento', 'transcricao', 'audio'].includes(f.tipo));
     select.innerHTML = '<option value="">Selecionar documento...';
     docs.forEach(d => {
-        select.innerHTML += `<option value="${d.id}" data-caminho="${d.caminho}">${d.nome}</option>`;
+        select.innerHTML += '<option value="' + d.id + '" data-caminho="' + d.caminho + '">' + d.nome + '</option>';
     });
     document.getElementById('text-editor-area').value = '';
 
@@ -535,7 +559,7 @@ async function openTranscricao() {
     const audios = FONTES.filter(f => f.tipo === 'audio');
     select.innerHTML = '<option value="">Selecionar áudio...';
     audios.forEach(a => {
-        select.innerHTML += `<option value="${a.id}">${a.nome}</option>`;
+        select.innerHTML += '<option value="' + a.id + '">' + a.nome + '</option>';
     });
 }
 
