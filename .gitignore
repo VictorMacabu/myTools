@@ -198,4 +198,22 @@ htmlcov/
 
 *.pem
 *.key
+
+# =========================
+
+# 🔹 PHP / Composer
+
+# =========================
+
+vendor/
+composer-setup.php
+
+# =========================
+
+# 🔹 PHPUnit
+
+# =========================
+
+.phpunit.result.cache
+coverage/
 *.crt
