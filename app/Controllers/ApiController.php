@@ -24,7 +24,7 @@ class ApiController extends Controller {
         $id = \App\Models\Workspace::create([
             'nome'  => $nome,
             'icone' => $_POST['icone'] ?? '💼',
-            'cor'   => '#0b0199',
+            'cor'   => $_POST['cor'] ?? '#F5F5F5',
         ]);
         $this->json(['id' => $id, 'nome' => $nome]);
     }

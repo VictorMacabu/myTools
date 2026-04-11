@@ -6,9 +6,9 @@
    ========================================================= */
 :root {
   /* --- Cor principal do sistema (altere aqui para trocar todo o tema) --- */
-  --primary:        #0b0199;
+  --primary:        #105ea3;
   --primary-light:  #a0d4f1e5;
-  --primary-hover:  #0900cc;
+  --primary-hover:  #0069cc;
 
   /* --- Cores de destaque --- */
   --accent:         #ff6b35;
@@ -764,3 +764,32 @@ label {
 .upload-zone:hover { border-color: var(--primary); }
 .upload-zone i { font-size: var(--fs-xl); color: var(--text-3); }
 .upload-zone p { color: var(--text-3); margin: var(--spacing-sm) 0; }
+
+/* =========================================================
+   Expandable Emoji Selector
+   ========================================================= */
+#ws-emoji-container {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  max-height: 60px;
+}
+
+#ws-emoji-toggle {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+}
+
+#ws-emoji-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}

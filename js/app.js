@@ -79,12 +79,44 @@ async function api(url, options = {}) {
 // ============================================================
 async function createWorkspace(e) {
     e.preventDefault();
+    
+    // Aplicar valores padrão se não selecionados
+    const emojiSelect = document.getElementById('ws-emoji-select');
+    const colorSelect = document.getElementById('ws-color-select');
+    
+    if (!emojiSelect.value) {
+        emojiSelect.value = '💼';
+    }
+    if (!colorSelect.value) {
+        colorSelect.value = '#F5F5F5';
+    }
+    
     const fd = new FormData(e.target);
     const data = await api('/api/workspaces', { method: 'POST', body: fd });
     if (data.error) { showToast(data.error, 'error'); return; }
     closeModal('modal-new-workspace');
     showToast('Área de trabalho criada!', 'success');
     window.location.href = '/?ws=' + data.id;
+}
+
+function toggleEmojiList(event) {
+    event.preventDefault();
+    const container = document.getElementById('ws-emoji-container');
+    const button = document.getElementById('ws-emoji-toggle');
+    
+    // Calcular altura para animação
+    const list = document.getElementById('ws-emoji-list');
+    const isExpanded = container.style.maxHeight !== 'none' && container.style.maxHeight !== 'none' && parseInt(container.style.maxHeight) > 100;
+    
+    if (isExpanded) {
+        // Colapsar
+        container.style.maxHeight = '60px';
+        button.textContent = 'Ver mais ícones';
+    } else {
+        // Expandir
+        container.style.maxHeight = (list.scrollHeight + 16) + 'px';
+        button.textContent = 'Ver menos ícones';
+    }
 }
 
 function selectWorkspaceEmoji(emoji, event) {
