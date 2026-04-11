@@ -56,12 +56,14 @@ class ApiControllerValidationTest extends BaseTestCase {
         $projId = \App\Models\Projeto::create([
             'nome'         => '  Test with spaces  ',
             'workspace_id' => $wsId,
+            'favorito'     => 0,
             'criado_em'    => date('Y-m-d H:i:s')
         ]);
 
         $proj = \App\Models\Projeto::find($projId);
-        // The trim is expected to happen in the controller, but we store what comes
-        $this->assertIsNotNull($proj);
+        // Trim é esperado acontecer em controller, mas armazenamos o que vem
+        $this->assertNotNull($proj);
+        $this->assertIsArray($proj);
     }
 
     /** @test */
