@@ -4,19 +4,19 @@ namespace Tests\Unit;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Test suite for Core Components
+ * Suite de testes para Componentes Core
  * 
- * Scenarios:
- * - Controller JSON output
- * - Controller input retrieval
- * - Model fillable field validation
- * - Database connection and schema
+ * Cenários:
+ * - Saída JSON do Controller
+ * - Recuperação de entrada do Controller
+ * - Validação de campos preenchiveis do Model
+ * - Conexão com banco de dados e schema
  */
 class CoreComponentsTest extends TestCase {
 
     /** @test */
     public function testModelFillableFieldsWorkspace(): void {
-        // Verify fillable fields protect against mass assignment
+        // Verifica se campos preenchiveis protegem contra atribuição em massa
         $fillable = ['nome', 'icone', 'cor'];
         
         $this->assertContains('nome', $fillable);
@@ -49,16 +49,16 @@ class CoreComponentsTest extends TestCase {
 
     /** @test */
     public function testDatabaseTableWorkspacesSchema(): void {
-        // Expected columns for workspaces table
+        // Colunas esperadas para a tabela workspaces
         $expectedColumns = ['id', 'nome', 'icone', 'cor', 'criado_em'];
         
-        // This is a static test of schema knowledge
+        // Este é um teste estático do conhecimento do schema
         $this->assertCount(5, $expectedColumns);
     }
 
     /** @test */
     public function testDatabaseTableProjetosSchema(): void {
-        // Expected columns for projetos table
+        // Colunas esperadas para a tabela projetos
         $expectedColumns = ['id', 'nome', 'favorito', 'criado_em', 'workspace_id', 'grupo_id'];
         
         $this->assertCount(6, $expectedColumns);
@@ -66,7 +66,7 @@ class CoreComponentsTest extends TestCase {
 
     /** @test */
     public function testDatabaseTableArquivosSchema(): void {
-        // Expected columns for arquivos table
+        // Colunas esperadas para a tabela arquivos
         $expectedColumns = ['id', 'nome', 'caminho', 'tipo', 'transcricao', 'tamanho_kb', 'criado_em', 'projeto_id'];
         
         $this->assertCount(8, $expectedColumns);
@@ -74,14 +74,14 @@ class CoreComponentsTest extends TestCase {
 
     /** @test */
     public function testForeignKeyConstraintsEnabled(): void {
-        // SQLite PRAGMA foreign_keys = ON should be set
-        // This is verified in Database::__construct()
+        // SQLite PRAGMA foreign_keys = ON deve estar configurado
+        // Isto é verificado em Database::__construct()
         $this->assertTrue(true);
     }
 
     /** @test */
     public function testArquivoTypeConstraint(): void {
-        // Valid types for arquivo tipo field
+        // Tipos válidos para o campo tipo do arquivo
         $validTypes = ['audio', 'video', 'imagem', 'documento', 'tabela', 'transcricao'];
         
         $this->assertCount(6, $validTypes);
@@ -91,8 +91,8 @@ class CoreComponentsTest extends TestCase {
 
     /** @test */
     public function testProjetoNomeNotEmpty(): void {
-        // CHECK constraint: LENGTH(TRIM(nome)) > 0
-        // This is enforced at database level
+        // Restrição CHECK: LENGTH(TRIM(nome)) > 0
+        // Isto é imposted no nível do banco de dados
         $this->assertTrue(true);
     }
 
@@ -104,14 +104,14 @@ class CoreComponentsTest extends TestCase {
 
     /** @test */
     public function testArquivoCaminhoNotEmpty(): void {
-        // CHECK constraint: LENGTH(TRIM(caminho)) > 0
+        // Restrição CHECK: LENGTH(TRIM(caminho)) > 0
         $this->assertTrue(true);
     }
 
     /** @test */
     public function testForeignKeyWorkspacesProjetosRelationship(): void {
         // projetos.workspace_id REFERENCES workspaces.id ON DELETE CASCADE
-        // This ensures data integrity
+        // Isto garante integridade dos dados
         $this->assertTrue(true);
     }
 
@@ -124,14 +124,14 @@ class CoreComponentsTest extends TestCase {
     /** @test */
     public function testForeignKeyProjetosGruposRelationship(): void {
         // projetos.grupo_id REFERENCES grupos.id ON DELETE SET NULL
-        // This allows projects to be ungrouped when group is deleted
+        // Isto permite que projetos fiquem desagrupados quando o grupo é deletado
         $this->assertTrue(true);
     }
 
     /** @test */
     public function testForeignKeyArquivosProjetosRelationship(): void {
         // arquivos.projeto_id REFERENCES projetos.id ON DELETE CASCADE
-        // Files are deleted when project is deleted
+        // Arquivos são deletados quando o projeto é deletado
         $this->assertTrue(true);
     }
 
@@ -145,15 +145,15 @@ class CoreComponentsTest extends TestCase {
             'idx_arquivos_tipo',
         ];
         
-        // Indexes optimize query performance
+        // Índices otimizam o desempenho de consultas
         $this->assertCount(5, $indexes);
     }
 
     /** @test */
     public function testPDOAttributesCorrect(): void {
-        // ATTR_ERRMODE => ERRMODE_EXCEPTION - throws exceptions instead of warnings
-        // ATTR_DEFAULT_FETCH_MODE => FETCH_ASSOC - returns associative arrays
-        // ATTR_EMULATE_PREPARES => false - uses real prepared statements
+        // ATTR_ERRMODE => ERRMODE_EXCEPTION - lança exceções em vez de avisoãs
+        // ATTR_DEFAULT_FETCH_MODE => FETCH_ASSOC - retorna arrays associativos
+        // ATTR_EMULATE_PREPARES => false - usa prepared statements reais
         $this->assertTrue(true);
     }
 }

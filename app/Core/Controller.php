@@ -21,7 +21,7 @@ abstract class Controller {
         extract($vars, EXTR_SKIP);
         $pageTitle = $vars['pageTitle'] ?? 'Projetos & Ferramentas';
 
-        // Include layout that will include $contentPath internally
+        // Inclui layout que incluirá $contentPath internamente
         include $viewDir . 'partials/_layout.php';
     }
 

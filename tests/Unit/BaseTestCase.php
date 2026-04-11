@@ -5,7 +5,7 @@ use PDO;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Base test case with test database setup
+ * Caso base de teste com configuração do banco de dados de testes
  */
 abstract class BaseTestCase extends TestCase {
     protected PDO $db;
@@ -13,9 +13,9 @@ abstract class BaseTestCase extends TestCase {
     protected function setUp(): void {
         parent::setUp();
         $this->db = \TestDatabase::getInstance()->getConnection();
-        // Reset database before each test
+        // Reseta banco de dados antes de cada teste
         \TestDatabase::getInstance()->reset();
-        // Re-initialize schema
+        // Reinicializa schema
         \TestDatabase::getInstance()->initSchema();
     }
 
@@ -25,7 +25,7 @@ abstract class BaseTestCase extends TestCase {
     }
 
     /**
-     * Helper: create a workspace for testing
+     * Auxiliador: criar um workspace para teste
      */
     protected function createWorkspace(string $nome = 'Teste WS', string $icone = '💼'): int {
         $stmt = $this->db->prepare(
@@ -36,7 +36,7 @@ abstract class BaseTestCase extends TestCase {
     }
 
     /**
-     * Helper: create a grupo for testing
+     * Auxiliador: criar um grupo para teste
      */
     protected function createGrupo(int $workspaceId, string $nome = 'Teste Grupo'): int {
         $stmt = $this->db->prepare(
@@ -47,7 +47,7 @@ abstract class BaseTestCase extends TestCase {
     }
 
     /**
-     * Helper: create a projeto for testing
+     * Auxiliador: criar um projeto para teste
      */
     protected function createProjeto(int $workspaceId, string $nome = 'Teste Projeto', ?int $grupoId = null): int {
         $stmt = $this->db->prepare(
@@ -59,7 +59,7 @@ abstract class BaseTestCase extends TestCase {
     }
 
     /**
-     * Helper: create an arquivo for testing
+     * Auxiliador: criar um arquivo para teste
      */
     protected function createArquivo(int $projetoId, string $nome = 'teste.mp3', string $tipo = 'audio'): int {
         $stmt = $this->db->prepare(

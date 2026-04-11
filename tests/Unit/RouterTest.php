@@ -5,14 +5,14 @@ use PHPUnit\Framework\TestCase;
 use App\Core\Router;
 
 /**
- * Test suite for Router
+ * Suite de testes para o Router
  * 
- * Scenarios:
- * - Get routes registration
- * - Post routes registration
- * - Dynamic route pattern matching
- * - Parameter extraction from URL patterns
- * - 404 handling for unmatched routes
+ * Cenários:
+ * - Registração de rotas GET
+ * - Registração de rotas POST
+ * - Correspondência dinâmica de padrões de rota
+ * - Extração de parâmetros de padrões de URL
+ * - Tratamento de 404 para rotas não correspondidas
  */
 class RouterTest extends TestCase {
 
@@ -30,8 +30,8 @@ class RouterTest extends TestCase {
             $called = true;
         });
 
-        // We can't directly test resolve without mocking $_SERVER superglobals
-        // This test verifies the route can be registered without errors
+        // Não podemos testar diretamente resolve sem fazer mock das variáveis globais $_SERVER
+        // Este teste verifica se a rota pode ser registrada sem erros
         $this->assertTrue(true);
     }
 
@@ -47,7 +47,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicProjetoRoutePattern(): void {
-        // Test pattern matching for /projeto/{id}
+        // Testa correspondencia de padrão para /projeto/{id}
         $pattern = '#^/projeto/(\d+)$#';
         
         $this->assertEquals(1, preg_match($pattern, '/projeto/123', $m));
@@ -59,7 +59,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicProjetoUploadPattern(): void {
-        // Test pattern for /api/projeto/{id}/upload
+        // Testa padrão para /api/projeto/{id}/upload
         $pattern = '#^/api/projeto/(\d+)/upload$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/projeto/42/upload', $m));
@@ -68,7 +68,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicFonteDeletePattern(): void {
-        // Test pattern for /api/fontes/{id}/delete
+        // Testa padrão para /api/fontes/{id}/delete
         $pattern = '#^/api/fontes/(\d+)/delete$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/fontes/99/delete', $m));
@@ -77,7 +77,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicFonteUpdatePattern(): void {
-        // Test pattern for /api/fontes/{id}/update
+        // Testa padrão para /api/fontes/{id}/update
         $pattern = '#^/api/fontes/(\d+)/update$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/fontes/5/update', $m));
@@ -86,7 +86,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicProjetoDeletePattern(): void {
-        // Test pattern for /api/projeto/{id}/delete
+        // Testa padrão para /api/projeto/{id}/delete
         $pattern = '#^/api/projeto/(\d+)/delete$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/projeto/100/delete', $m));
@@ -95,7 +95,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicProjetoToggleFavPattern(): void {
-        // Test pattern for /api/projeto/{id}/toggle-fav
+        // Testa padrão para /api/projeto/{id}/toggle-fav
         $pattern = '#^/api/projeto/(\d+)/toggle-fav$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/projeto/7/toggle-fav', $m));
@@ -104,7 +104,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicProjetoUpdatePattern(): void {
-        // Test pattern for /api/projeto/{id}/update
+        // Testa padrão para /api/projeto/{id}/update
         $pattern = '#^/api/projeto/(\d+)/update$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/projeto/10/update', $m));
@@ -113,7 +113,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicWorkspaceDeletePattern(): void {
-        // Test pattern for /api/workspace/{id}/delete
+        // Testa padrão para /api/workspace/{id}/delete
         $pattern = '#^/api/workspace/(\d+)/delete$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/workspace/99/delete', $m));
@@ -122,7 +122,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicWorkspaceUpdatePattern(): void {
-        // Test pattern for /api/workspace/{id}/update
+        // Testa padrão para /api/workspace/{id}/update
         $pattern = '#^/api/workspace/(\d+)/update$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/workspace/44/update', $m));
@@ -131,7 +131,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicGrupoDeletePattern(): void {
-        // Test pattern for /api/grupo/{id}/delete
+        // Testa padrão para /api/grupo/{id}/delete
         $pattern = '#^/api/grupo/(\d+)/delete$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/grupo/11/delete', $m));
@@ -140,7 +140,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicGrupoUpdatePattern(): void {
-        // Test pattern for /api/grupo/{id}/update
+        // Testa padrão para /api/grupo/{id}/update
         $pattern = '#^/api/grupo/(\d+)/update$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/grupo/22/update', $m));
@@ -149,7 +149,7 @@ class RouterTest extends TestCase {
 
     /** @test */
     public function testDynamicProjetoFontesPattern(): void {
-        // Test pattern for /api/projeto/{id}/fontes
+        // Testa padrão para /api/projeto/{id}/fontes
         $pattern = '#^/api/projeto/(\d+)/fontes$#';
         
         $this->assertEquals(1, preg_match($pattern, '/api/projeto/55/fontes', $m));
@@ -168,7 +168,7 @@ class RouterTest extends TestCase {
     public function testPatternIsExact(): void {
         $pattern = '#^/api/projeto/(\d+)/upload$#';
         
-        // Should not match with extra path
+        // Não deve corresponder com caminho adicional
         $this->assertEquals(0, preg_match($pattern, '/api/projeto/1/upload/extra'));
     }
 }

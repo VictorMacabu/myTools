@@ -11,6 +11,9 @@ class Database {
     private string $dbPath;
 
     private function __construct() {
+        // Define o fuso horário para Brasília (UTC-3)
+        date_default_timezone_set('America/Sao_Paulo');
+
         $this->dbPath = dirname(__DIR__, 2) . '/sistema.db';
         $dsn = 'sqlite:' . $this->dbPath;
 
@@ -21,10 +24,19 @@ class Database {
                 PDO::ATTR_EMULATE_PREPARES    => false,
             ]);
             $this->pdo->exec('PRAGMA foreign_keys = ON');
+            $this->logOperation('CONECTAR', 'BANCO_DE_DADOS', 'Conectado ao banco de dados: ' . $this->dbPath);
             $this->initSchema();
         } catch (PDOException $e) {
-            die('Database error: ' . $e->getMessage());
+            $this->logOperation('ERRO', 'BANCO_DE_DADOS', 'Falha na conexão: ' . $e->getMessage());
+            die('Erro de banco de dados: ' . $e->getMessage());
         }
+    }
+
+    public function logOperation(string $operacao, string $tabela, string $detalhes): void {
+        $arquivoLog = dirname(__DIR__, 2) . '/logs/database.log';
+        $timestamp = date('d-m-Y H:i:s');
+        $linhaLog = "[$timestamp] $operacao $tabela $detalhes" . PHP_EOL;
+        @file_put_contents($arquivoLog, $linhaLog, FILE_APPEND | LOCK_EX);
     }
 
     public static function getInstance(): self {

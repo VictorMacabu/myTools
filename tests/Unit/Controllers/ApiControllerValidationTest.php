@@ -4,30 +4,30 @@ namespace Tests\Unit\Controllers;
 use Tests\Unit\BaseTestCase;
 
 /**
- * Test suite for API Controllers validation and behavior
+ * Suite de testes para validação e comportamento dos API Controllers
  * 
- * Scenarios:
- * - Input validation (required fields, data types)
- * - JSON response format
- * - Error handling
- * - Data sanitization
- * - Authorization checks (basic)
+ * Cenários:
+ * - Validação de entrada (campos obrigatórios, tipos de dados)
+ * - Formato de resposta JSON
+ * - Tratamento de erros
+ * - Sanitização de dados
+ * - Verificações de autorização (básica)
  * 
- * Note: Full controller testing requires mocking HTTP requests and responses.
- * These tests focus on the business logic and validation rules.
+ * Nota: Testes completos de controller requerem simular requisições e respostas HTTP.
+ * Estes testes focam na lógica de negócio e regras de validação.
  */
 class ApiControllerValidationTest extends BaseTestCase {
 
     /** @test */
     public function testCreateWorkspaceRequiresName(): void {
-        // Verification that nome is required in createWorkspace
-        // Valid: nome is provided
+        // Verificação de que nome é obrigatório em createWorkspace
+        // Válido: nome é fornecido
         $this->assertTrue(true); // In real scenario, would POST with missing 'nome'
     }
 
     /** @test */
     public function testCreateProjetoRequiresNameAndWorkspace(): void {
-        // Both nome and workspace_id are required for createProjeto
+        // Ambos nome e workspace_id são obrigatórios para createProjeto
         $wsId = $this->createWorkspace();
         $projId = \App\Models\Projeto::create([
             'nome'         => 'Test',
@@ -70,7 +70,7 @@ class ApiControllerValidationTest extends BaseTestCase {
         $grupoId = $this->createGrupo($wsId);
         $projId = $this->createProjeto($wsId);
 
-        // Simulate updateProjeto controller receiving grupo_id
+        // Simula o controller updateProjeto recebendo grupo_id
         \App\Models\Projeto::update($projId, ['grupo_id' => $grupoId]);
 
         $proj = \App\Models\Projeto::find($projId);
@@ -82,11 +82,11 @@ class ApiControllerValidationTest extends BaseTestCase {
         $wsId = $this->createWorkspace();
         $projId = $this->createProjeto($wsId);
 
-        // Get current state
+        // Obter estado atual
         $proj = \App\Models\Projeto::find($projId);
         $wasFav = $proj['favorito'];
 
-        // Toggle
+        // Ativar/desativar
         $newFav = $wasFav ? 0 : 1;
         \App\Models\Projeto::update($projId, ['favorito' => $newFav]);
 
@@ -121,12 +121,12 @@ class ApiControllerValidationTest extends BaseTestCase {
 
     /** @test */
     public function testArquivoTypeCannotBeChangedByFillable(): void {
-        // tipo is NOT in fillable, so it cannot be changed via update()
+        // tipo NÃO está em preenchiveis, portanto não pode ser alterado via update()
         $wsId = $this->createWorkspace();
         $projId = $this->createProjeto($wsId);
         $arquivoId = $this->createArquivo($projId, 'test.mp3', 'audio');
 
-        // Attempt to change type (should not work if tipo not in fillable)
+        // Tentativa de mudar tipo (não deve funcionar se tipo não estiver em preenchiveis)
         \App\Models\Arquivo::update($arquivoId, ['tipo' => 'video']);
 
         $arquivo = \App\Models\Arquivo::find($arquivoId);
@@ -147,13 +147,13 @@ class ApiControllerValidationTest extends BaseTestCase {
 
     /** @test */
     public function testProjetoCanChangeWorkspace(): void {
-        // WARNING: Not a real scenario - projetos are tied to workspaces
-        // But testing the capability if update allowed it
+        // AVISO: Não é um cenário real - projetos são vinculados a workspaces
+        // Mas testando a capacidade se update permitisse
         $ws1 = $this->createWorkspace('WS1');
         $ws2 = $this->createWorkspace('WS2');
         $projId = $this->createProjeto($ws1);
 
-        // If update were to allow this
+        // Se update fosse permitir isto
         \App\Models\Projeto::update($projId, ['workspace_id' => $ws2]);
 
         $proj = \App\Models\Projeto::find($projId);
@@ -162,7 +162,7 @@ class ApiControllerValidationTest extends BaseTestCase {
 
     /** @test */
     public function testFilesUploadPathIsValid(): void {
-        // Verify that file paths are stored consistently
+        // Verifica se os caminhos de arquivo são armazenados consistentemente
         $wsId = $this->createWorkspace();
         $projId = $this->createProjeto($wsId);
         $arquivoId = $this->createArquivo($projId, 'test.mp3');
@@ -193,10 +193,10 @@ class ApiControllerValidationTest extends BaseTestCase {
         $this->createArquivo($projId, 'file2.mp3');
         $this->createArquivo($projId, 'file3.mp3');
 
-        // Delete project (cascade)
+        // Deletar projeto (em cascata)
         \App\Models\Projeto::delete($projId);
 
-        // Verify all files are gone
+        // Verifica se todos os arquivos se foram
         $fontes = \App\Models\Projeto::fontes($projId);
         $this->assertCount(0, $fontes);
     }

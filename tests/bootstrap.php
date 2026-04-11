@@ -4,22 +4,22 @@
  * Configuração inicial do ambiente de testes
  */
 
-// Define test mode
+// Define modo de teste
 define('TESTING', true);
 
-// Load Composer autoloader first
+// Carrega o autoloader Composer primeiro
 $composerAutoloader = __DIR__ . '/../vendor/autoload.php';
 if (file_exists($composerAutoloader)) {
     require_once $composerAutoloader;
 }
 
-// Then load application autoloader
+// Depois carrega o autoloader da aplicação
 $autoloader = __DIR__ . '/../autoload.php';
 if (file_exists($autoloader)) {
     require_once $autoloader;
 }
 
-// Use a test database instead of the production one
+// Usa um banco de dados de testes em vez do banco de dados de produção
 class TestDatabase {
     private static $instance = null;
     private $pdo;
@@ -32,7 +32,7 @@ class TestDatabase {
     }
 
     public function __construct() {
-        // Create in-memory SQLite database for testing
+        // Cria um banco de dados SQLite em memória para testes
         $dsn = 'sqlite::memory:';
         $this->pdo = new PDO($dsn, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -111,7 +111,7 @@ class TestDatabase {
     }
 }
 
-// Module override for testing - inject test database
+// Sobreção de módulo para testes - injetar banco de dados de testes
 if (!function_exists('getTestDatabase')) {
     function getTestDatabase() {
         return TestDatabase::getInstance();
