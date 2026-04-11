@@ -245,18 +245,33 @@ async function deleteProjeto() {
 }
 
 async function toggleFavorite(id) {
+    event.stopPropagation();
     const data = await api('/api/projeto/' + id + '/toggle-fav', { method: 'POST' });
     showToast('Favorito atualizado', 'info');
     const card = document.querySelector(`.proj-card[data-id="${id}"]`);
     if (card) {
         const badge = card.querySelector('.fav-badge');
+        const starBtn = card.querySelector('button[onclick*="toggleFavorite"] i');
+        
         if (card.classList.contains('fav-card')) {
+            // Remover de favoritos
             card.classList.remove('fav-card');
             if (badge) badge.remove();
+            if (starBtn) {
+                starBtn.classList.remove('bi-star-fill');
+                starBtn.classList.add('bi-star');
+                starBtn.style.color = 'inherit';
+            }
         } else {
+            // Adicionar aos favoritos
             card.classList.add('fav-card');
             if (!badge) {
                 card.querySelector('.proj-cover').insertAdjacentHTML('beforeend', '<span class="fav-badge"><i class="bi bi-star-fill" style="color:#d97706"></i></span>');
+            }
+            if (starBtn) {
+                starBtn.classList.remove('bi-star');
+                starBtn.classList.add('bi-star-fill');
+                starBtn.style.color = '#d97706';
             }
         }
     }
