@@ -6,7 +6,7 @@
             <span class="dash-header__ws-label">Projetos</span>
             <div style="display:flex;align-items:center;gap:8px;position:relative">
                 <h1><?= htmlspecialchars($wsSelected['icone']) ?> <?= htmlspecialchars($wsSelected['nome']) ?></h1>
-                <button type="button" onclick="openEditWorkspaceModal(<?= $activeWs ?>, '<?= htmlspecialchars($wsSelected['nome'], ENT_QUOTES) ?>', '<?= htmlspecialchars($wsSelected['icone'], ENT_QUOTES) ?>', '<?= htmlspecialchars($wsSelected['cor'], ENT_QUOTES) ?>')" title="Editar workspace" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:var(--text-2);font-size:18px;display:flex;align-items:center;justify-content:center;height:32px">
+                <button type="button" class="btn btn-icon btn-ghost" onclick="openEditWorkspaceModal(<?= $activeWs ?>, '<?= htmlspecialchars($wsSelected['nome'], ENT_QUOTES) ?>', '<?= htmlspecialchars($wsSelected['icone'], ENT_QUOTES) ?>', '<?= htmlspecialchars($wsSelected['cor'], ENT_QUOTES) ?>')" title="Editar workspace">
                     <i class="bi bi-three-dots-vertical"></i>
                 </button>
             </div>
@@ -23,13 +23,13 @@
         <div style="display:flex;align-items:center;gap:0;position:relative">
             <a href="<?= $basePath ?>?ws=<?= $activeWs ?>&grupo=<?= $g['id'] ?>" class="fpill <?= $activeGroup == $g['id'] ? 'active' : '' ?>" style="display:flex;align-items:center;gap:8px;padding-right:8px">
                 <?= htmlspecialchars($g['nome']) ?>
-                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); editGrupoForm(<?= $g['id'] ?>, '<?= htmlspecialchars($g['nome'], ENT_QUOTES) ?>')" title="Editar grupo" style="background:none;border:none;cursor:pointer;padding:0;color:inherit;display:flex;align-items:center;justify-content:center;width:20px;height:20px">
-                    <i class="bi bi-three-dots-vertical" style="font-size:14px"></i>
+                <button type="button" class="btn btn-icon btn-ghost btn-sm" onclick="event.preventDefault(); event.stopPropagation(); editGrupoForm(<?= $g['id'] ?>, '<?= htmlspecialchars($g['nome'], ENT_QUOTES) ?>')" title="Editar grupo">
+                    <i class="bi bi-three-dots-vertical"></i>
                 </button>
             </a>
         </div>
         <?php endforeach; ?>
-        <button class="fpill" onclick="openModal('modal-new-grupo')">
+        <button type="button" class="btn fpill" onclick="openModal('modal-new-grupo')">
             <i class="bi bi-plus"></i> Novo grupo
         </button>
     </div>
@@ -127,13 +127,13 @@
                         <button type="button" onclick="selectWorkspaceEmoji('🤖', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🤖</button>
                     </div>
                 </div>
-                <button type="button" id="ws-emoji-toggle" onclick="toggleEmojiList(event)" style="width:100%;padding:8px;margin-top:8px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-md);cursor:pointer;font-size:12px;color:var(--text);font-family:var(--font-sans);">Ver mais ícones</button>
+                <button type="button" id="ws-emoji-toggle" class="btn btn-secondary" onclick="toggleEmojiList(event)" style="width:100%;margin-top:8px">Ver mais ícones</button>
             </div>
             <div style="margin-bottom:16px">
                 <label>Cor</label>
-                <input type="color" id="ws-color-select" name="cor" value="#F5F5F5" style="width:80px;height:35px;border:1px solid var(--border);cursor:pointer;border-radius:var(--radius-md);">
+                <input type="color" class="input-color-circle" id="ws-color-select" name="cor" value="#F5F5F5" style="cursor:pointer;">
             </div>
-            <button type="submit" class="btn-primary" style="width:100%">Criar</button>
+            <button type="submit" class="btn btn-primary" style="width:100%">Criar</button>
         </form>
     </div>
 </div>
@@ -178,16 +178,16 @@
                         <button type="button" onclick="selectEditWorkspaceEmoji('🤖', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🤖</button>
                     </div>
                 </div>
-                <button type="button" id="edit-ws-emoji-toggle" onclick="toggleEditEmojiList(event)" style="width:100%;padding:8px;margin-top:8px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-md);cursor:pointer;font-size:12px;color:var(--text);font-family:var(--font-sans);">Ver mais ícones</button>
+                <button type="button" id="edit-ws-emoji-toggle" class="btn btn-secondary" onclick="toggleEditEmojiList(event)" style="width:100%;margin-top:8px">Ver mais ícones</button>
             </div>
             <div style="margin-bottom:16px">
                 <label>Cor</label>
                 <input type="color" id="edit-ws-color-select" name="cor" value="#F5F5F5" style="width:80px;height:35px;border:1px solid var(--border);cursor:pointer;border-radius:var(--radius-md);">
             </div>
-            <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
+            <button type="submit" class="btn btn-primary" style="width:100%">Salvar</button>
         </form>
         <div style="margin-top:12px">
-            <button type="button" onclick="deleteWorkspaceConfirm()" style="width:100%;padding:10px 16px;border-radius:var(--radius-md);border:1px solid var(--danger);background:var(--danger-light);color:var(--danger);cursor:pointer;font-family:var(--font-sans);font-size:14px;">
+            <button type="button" class="btn btn-danger" onclick="deleteWorkspaceConfirm()" style="width:100%">
                 <i class="bi bi-trash"></i> Excluir workspace
             </button>
         </div>
@@ -209,7 +209,7 @@
                 <label>Cor</label>
                 <input type="color" name="cor" value="#e5e7eb" style="width:50px;height:35px;border:none;cursor:pointer;border-radius:var(--radius-sm);">
             </div>
-            <button type="submit" class="btn-primary" style="width:100%">Criar</button>
+            <button type="submit" class="btn btn-primary" style="width:100%">Criar</button>
         </form>
     </div>
 </div>
@@ -225,10 +225,10 @@
                 <label>Nome</label>
                 <input type="text" id="edit-grupo-nome" name="nome" required style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:var(--radius-md);font-size:14px;">
             </div>
-            <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
+            <button type="submit" class="btn btn-primary" style="width:100%">Salvar</button>
         </form>
         <div style="margin-top:12px">
-            <button type="button" onclick="deleteGrupo()" style="width:100%;padding:10px 16px;border-radius:var(--radius-md);border:1px solid var(--danger);background:var(--danger-light);color:var(--danger);cursor:pointer;font-family:var(--font-sans);font-size:14px;">
+            <button type="button" class="btn btn-danger" onclick="deleteGrupo()" style="width:100%">
                 <i class="bi bi-trash"></i> Excluir grupo
             </button>
         </div>
@@ -251,14 +251,14 @@
             <div style="margin-bottom:16px">
                 <label>Grupo (opcional)</label>
                 <div id="new-projeto-grupo-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-                    <button type="button" onclick="selectGrupo(-1)" style="padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);">Sem grupo</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="selectGrupo(-1)">Sem grupo</button>
                     <?php foreach ($grupos as $g): ?>
-                    <button type="button" onclick="selectGrupo(<?= $g['id'] ?>)" style="padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);"><?= htmlspecialchars($g['nome']) ?></button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="selectGrupo(<?= $g['id'] ?>)"><?= htmlspecialchars($g['nome']) ?></button>
                     <?php endforeach; ?>
                 </div>
             </div>
             <?php endif; ?>
-            <button type="submit" class="btn-primary" style="width:100%">Criar</button>
+            <button type="submit" class="btn btn-primary" style="width:100%">Criar</button>
         </form>
     </div>
 </div>
@@ -285,17 +285,17 @@
             <div style="margin-bottom:16px">
                 <label>Grupo</label>
                 <div id="edit-projeto-grupo-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-                    <button type="button" onclick="event.preventDefault(); selectEditGrupo(-1)" style="padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);">Sem grupo</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="event.preventDefault(); selectEditGrupo(-1)">Sem grupo</button>
                     <?php foreach ($grupos as $g): ?>
-                    <button type="button" onclick="event.preventDefault(); selectEditGrupo(<?= $g['id'] ?>)" style="padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);"><?= htmlspecialchars($g['nome']) ?></button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="event.preventDefault(); selectEditGrupo(<?= $g['id'] ?>)"><?= htmlspecialchars($g['nome']) ?></button>
                     <?php endforeach; ?>
                 </div>
             </div>
             <?php endif; ?>
-            <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
+            <button type="submit" class="btn btn-primary" style="width:100%">Salvar</button>
         </form>
         <div style="margin-top:12px">
-            <button type="button" onclick="deleteProjeto()" style="width:100%;padding:10px 16px;border-radius:var(--radius-md);border:1px solid var(--danger);background:var(--danger-light);color:var(--danger);cursor:pointer;font-family:var(--font-sans);font-size:14px;">
+            <button type="button" class="btn btn-danger" onclick="deleteProjeto()" style="width:100%">
                 <i class="bi bi-trash"></i> Excluir projeto
             </button>
         </div>

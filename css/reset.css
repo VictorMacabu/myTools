@@ -1,0 +1,80 @@
+/* =========================================================
+   MODERN CSS RESET
+   ========================================================= */
+
+/* 1. Garante que padding e border não aumentem a largura dos elementos */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 2. Remove margens padrão que variam entre navegadores */
+* {
+  margin: 0;
+  padding: 0;
+}
+
+/* 3. Melhora a renderização de fontes e suavidade */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+/* 4. Garante que o body ocupe a altura total e tenha um respiro consistente */
+body {
+  min-height: 100vh;
+  line-height: 1.5;
+  text-rendering: optimizeSpeed;
+}
+
+/* 5. Torna elementos de mídia mais fáceis de manipular */
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* 6. Remove estilos de lista (geralmente indesejados em menus) */
+ul, ol {
+  list-style: none;
+}
+
+/* 7. Herança de fonte para inputs e botões (evita que usem Arial por padrão) */
+input, button, textarea, select {
+  font: inherit;
+}
+
+/* 8. Remove animações para usuários que preferem redução de movimento (Acessibilidade) */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+button, 
+[type="button"], 
+[type="reset"], 
+[type="submit"] {
+  appearance: none;    /* Remove a estilização nativa do SO (iOS/Android) */
+  background: none;    /* Remove a cor de fundo cinza padrão */
+  border: none;        /* Remove a borda chanfrada */
+  padding: 0;          /* Remove o espaçamento interno padrão */
+  margin: 0;           /* Remove margens externas */
+  font: inherit;       /* Força o botão a herdar a fonte do elemento pai */
+  color: inherit;      /* Força o botão a herdar a cor do texto pai */
+  cursor: pointer;     /* Garante que o ícone de 'mãozinha' apareça */
+  text-align: inherit; /* Alinha o texto conforme o contexto */
+  outline: none;       /* Remove o contorno (leia o aviso de acessibilidade abaixo) */
+}
+
+/* Re-adicionando acessibilidade básica */
+button:focus-visible {
+  outline: 2px solid var(--primary); /* Use sua variável de cor principal */
+  outline-offset: 2px;
+}
+

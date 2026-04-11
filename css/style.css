@@ -88,7 +88,7 @@
 
   /* --- Border radius --- */
   --radius-sm:   6px;
-  --radius-md:   10px;
+  --radius-md:   12px;
   --radius-lg:   16px;
   --radius-xl:   24px;
   --radius-pill: 99px;
@@ -792,4 +792,301 @@ label {
   border-color: var(--primary);
   color: var(--primary);
   background: var(--primary-light);
+}
+
+/* =========================================================
+   BUTTON STYLES (Modern Design System)
+   ========================================================= */
+
+/* Base button styles */
+.btn {
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-md);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  text-decoration: none;
+  user-select: none;
+}
+
+.btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Button sizes */
+.btn.btn-sm {
+  padding: 4px var(--spacing-md);
+  font-size: var(--fs-sm);
+}
+
+.btn.btn-lg {
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: var(--fs-lg);
+}
+
+/* Button variations - Primary */
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.btn-primary:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Button variations - Secondary */
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+
+.btn-secondary:not(:disabled):hover {
+  background: var(--surface);
+  border-color: var(--text-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:not(:disabled):active {
+  background: var(--bg);
+  box-shadow: none;
+}
+
+/* Button variations - Success */
+.btn-success {
+  background: var(--success);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-success:not(:disabled):hover {
+  background: #047857;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Button variations - Danger */
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-danger:not(:disabled):hover {
+  background: #b91c1c;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Button variations - Warning */
+.btn-warning {
+  background: var(--warning);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-warning:not(:disabled):hover {
+  background: #b45309;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Button variations - Outline */
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+
+.btn-outline:not(:disabled):hover {
+  background: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(16, 94, 163, 0.1);
+}
+
+.btn-outline:not(:disabled):active {
+  box-shadow: none;
+}
+
+.btn-outline.outline-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn-outline.outline-danger:not(:disabled):hover {
+  background: var(--danger-light);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.btn-outline.outline-success {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.btn-outline.outline-success:not(:disabled):hover {
+  background: var(--success-light);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+/* Button variations - Ghost (Transparent) */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-2);
+  border: none;
+}
+
+.btn-ghost:not(:disabled):hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-ghost:not(:disabled):active {
+  background: var(--border);
+}
+
+/* Button group */
+.btn-group {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.btn-group .btn {
+  border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.btn-group .btn:last-child {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+/* Icon-only button */
+.btn-icon {
+  width: var(--spacing-2xl);
+  height: var(--spacing-2xl);
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.btn-icon.btn-lg {
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
+}
+
+.btn-icon.btn-sm {
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
+}
+
+/* Loading state */
+.btn.btn-loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.btn.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* =========================================================
+   REFINAMENTOS E NOVAS VARIANTES
+   ========================================================= */
+
+/* Variante Tonal: Fundo suave, texto forte. Perfeito para ações secundárias importantes. */
+.btn-tonal {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+.btn-tonal:hover:not(:disabled) {
+  background: #105ea340;
+  transform: translateY(-1px);
+}
+
+/* Variante Accent: Usando sua cor de destaque (Laranja) */
+.btn-accent {
+  background: var(--accent);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+.btn-accent:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Efeito de Clique Genérico para todos os botões */
+.btn:active:not(:disabled) {
+  transform: scale(0.97) translateY(0);
+}
+
+/* Ajuste no Ghost para maior visibilidade no hover */
+.btn-ghost:hover:not(:disabled) {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+/* Container principal do input */
+.input-color-circle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill); /* Usa seu token de 99px */
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden; /* Garante que a cor não "vaze" as bordas */
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.input-color-circle:hover {
+  transform: scale(1.05);
+  border-color: var(--primary);
+}
+
+/* Chrome, Edge, Safari */
+.input-color-circle::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.input-color-circle::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-pill);
+}
+
+/* Firefox */
+.input-color-circle::-moz-color-swatch {
+  border: none;
+  border-radius: var(--radius-pill);
 }

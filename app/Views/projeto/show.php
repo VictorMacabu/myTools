@@ -15,7 +15,7 @@
         <div class="panel panel-left">
             <div class="panel-header">
                 Fontes
-                <button class="add-btn" onclick="openModal('modal-add-fonte')" title="Adicionar fonte"><i class="bi bi-plus"></i></button>
+                <button type="button" class="btn btn-primary" onclick="openModal('modal-add-fonte')" title="Adicionar fonte"><i class="bi bi-plus"></i></button>
             </div>
             <div class="panel-scroll" id="fontes-list">
                 <?php if (empty($fontes)): ?>
@@ -32,7 +32,7 @@
                         <div class="fonte-nome"><?= htmlspecialchars($f['nome']) ?></div>
                         <div class="fonte-tipo"><?= $f['tipo'] ?> &middot; <?= $f['tamanho_kb'] ?> KB</div>
                     </div>
-                    <button class="fonte-del" onclick="event.stopPropagation();deleteFonte(<?= $f['id'] ?>)" title="Remover">
+                    <button type="button" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();deleteFonte(<?= $f['id'] ?>)" title="Remover">
                         <i class="bi bi-x"></i>
                     </button>
                 </div>
@@ -60,7 +60,7 @@
                 <div id="chat-form" class="hidden">
                     <div style="display:flex;gap:8px">
                         <textarea id="chat-input" placeholder="Sua mensagem..." rows="2" style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;font-family:var(--font-sans);resize:none;"></textarea>
-                        <button class="btn-primary" onclick="sendChatMessage()" style="align-self:flex-end;padding:8px 16px">
+                        <button class="btn btn-primary" onclick="sendChatMessage()" style="align-self:flex-end;padding:8px 16px">
                             <i class="bi bi-send"></i>
                         </button>
                     </div>
@@ -74,31 +74,31 @@
             <div class="panel-scroll">
                 <div class="tool-section-label">Mídia</div>
 
-                <button class="tool-btn" onclick="openModal('modal-add-fonte')">
+                <button type="button" class="btn btn-secondary" onclick="openModal('modal-add-fonte')">
                     <i class="bi bi-upload"></i> Adicionar fonte
                 </button>
 
-                <button class="tool-btn" onclick="openAudioCutter()">
+                <button type="button" class="btn btn-secondary" onclick="openAudioCutter()">
                     <i class="bi bi-scissors"></i> Cortar &aacute;udio
                 </button>
 
-                <button class="tool-btn" onclick="openModal('modal-transcrever')">
+                <button type="button" class="btn btn-secondary" onclick="openModal('modal-transcrever')">
                     <i class="bi bi-mic"></i> Transcrever &aacute;udio
                 </button>
 
                 <div class="tool-section-label">Visualizar</div>
 
-                <button class="tool-btn" onclick="openMediaViewer()">
+                <button type="button" class="btn btn-secondary" onclick="openMediaViewer()">
                     <i class="bi bi-play-btn"></i> Player de &aacute;udio/vídeo
                 </button>
 
-                <button class="tool-btn" onclick="openImageViewer()">
+                <button type="button" class="btn btn-secondary" onclick="openImageViewer()">
                     <i class="bi bi-image"></i> Visualizar imagem
                 </button>
 
                 <div class="tool-section-label">Documento</div>
 
-                <button class="tool-btn" onclick="openTextEditor()">
+                <button type="button" class="btn btn-secondary" onclick="openTextEditor()">
                     <i class="bi bi-pencil-square"></i> Editor de texto
                 </button>
             </div>
@@ -118,7 +118,7 @@
                 <input type="file" name="arquivo" id="file-select" multiple
                        style="display:none" accept="audio/*,video/*,image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.srt,.vtt"
                        onchange="handleFileSelect(this)">
-                <button type="button" class="btn-ghost" onclick="document.getElementById('file-select').click()" style="display:inline-flex;gap:6px;align-items:center;padding:8px 16px;cursor:pointer;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);font-family:var(--font-sans)">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('file-select').click()">
                     <i class="bi bi-paperclip"></i> Selecionar arquivos
                 </button>
             </div>
@@ -158,7 +158,7 @@
                     <input type="text" id="cortar-nome" placeholder="Ex: trecho_intro.mp3"
                            style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;">
                 </div>
-                <button class="btn-primary" onclick="cortarAudio()" style="width:100%">
+                <button class="btn btn-primary" onclick="cortarAudio()" style="width:100%">
                     <i class="bi bi-scissors"></i> Cortar e salvar
                 </button>
             </div>
@@ -199,7 +199,7 @@
             <option value="">Selecionar documento...</option>
         </select>
         <textarea id="text-editor-area" rows="20" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;font-family:var(--font-mono);resize:vertical;"></textarea>
-        <button class="btn-primary" onclick="salvarTexto()" style="width:100%;margin-top:12px">Salvar</button>
+        <button class="btn btn-primary" onclick="salvarTexto()" style="width:100%;margin-top:12px">Salvar</button>
     </div>
 </div>
 
@@ -214,7 +214,7 @@
         <select id="transcrever-select" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;margin-bottom:12px;">
             <option value="">Selecionar &aacute;udio...</option>
         </select>
-        <button class="btn-primary" onclick="transcreverAudio()" style="width:100%">
+        <button class="btn btn-primary" onclick="transcreverAudio()" style="width:100%">
             <i class="bi bi-mic"></i> Transcrever
         </button>
     </div>
