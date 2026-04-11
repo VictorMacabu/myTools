@@ -1,6 +1,46 @@
 /* =========================================================
    MODERN CSS RESET
    ========================================================= */
+   /* =========================================================
+   RESET / BASE
+   ========================================================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--fs-lg);
+  color: var(--text);
+  background: var(--bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: inherit; 
+}
+
+label {
+  display: block;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--text-2);
+  margin-bottom: var(--spacing-xs);
+}
 
 /* 1. Garante que padding e border não aumentem a largura dos elementos */
 *, *::before, *::after {

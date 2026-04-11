@@ -21,6 +21,28 @@ document.addEventListener('keydown', e => {
 });
 
 // ============================================================
+//  Color hex display
+// ============================================================
+function updateColorHex(input) {
+    const hexValue = input.value.toUpperCase();
+    const inputId = input.id;
+    let hexSpanId;
+    
+    if (inputId === 'ws-color-select') {
+        hexSpanId = 'ws-color-hex';
+    } else if (inputId === 'edit-ws-color-select') {
+        hexSpanId = 'edit-ws-color-hex';
+    }
+    
+    if (hexSpanId) {
+        const hexSpan = document.getElementById(hexSpanId);
+        if (hexSpan) {
+            hexSpan.textContent = hexValue;
+        }
+    }
+}
+
+// ============================================================
 //  Toast notifications
 // ============================================================
 function showToast(msg, type = 'info') {
@@ -166,6 +188,7 @@ function openEditWorkspaceModal(id, nome, icone, cor) {
     document.getElementById('edit-ws-nome').value = nome;
     document.getElementById('edit-ws-emoji-select').value = icone;
     document.getElementById('edit-ws-color-select').value = cor;
+    document.getElementById('edit-ws-color-hex').textContent = cor.toUpperCase();
     
     const buttons = document.querySelectorAll('#edit-ws-emoji-list button');
     buttons.forEach(btn => {
