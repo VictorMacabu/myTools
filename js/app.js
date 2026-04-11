@@ -104,16 +104,30 @@ function toggleEmojiList(event) {
     const container = document.getElementById('ws-emoji-container');
     const button = document.getElementById('ws-emoji-toggle');
     
-    // Calcular altura para animação
     const list = document.getElementById('ws-emoji-list');
     const isExpanded = container.style.maxHeight !== 'none' && container.style.maxHeight !== 'none' && parseInt(container.style.maxHeight) > 100;
     
     if (isExpanded) {
-        // Colapsar
         container.style.maxHeight = '60px';
         button.textContent = 'Ver mais ícones';
     } else {
-        // Expandir
+        container.style.maxHeight = (list.scrollHeight + 16) + 'px';
+        button.textContent = 'Ver menos ícones';
+    }
+}
+
+function toggleEditEmojiList(event) {
+    event.preventDefault();
+    const container = document.getElementById('edit-ws-emoji-container');
+    const button = document.getElementById('edit-ws-emoji-toggle');
+    
+    const list = document.getElementById('edit-ws-emoji-list');
+    const isExpanded = container.style.maxHeight !== 'none' && container.style.maxHeight !== 'none' && parseInt(container.style.maxHeight) > 100;
+    
+    if (isExpanded) {
+        container.style.maxHeight = '60px';
+        button.textContent = 'Ver mais ícones';
+    } else {
         container.style.maxHeight = (list.scrollHeight + 16) + 'px';
         button.textContent = 'Ver menos ícones';
     }
@@ -130,6 +144,65 @@ function selectWorkspaceEmoji(emoji, event) {
     });
     event.target.style.borderColor = 'var(--primary)';
     event.target.style.background = 'var(--primary)';
+}
+
+function selectEditWorkspaceEmoji(emoji, event) {
+    event.preventDefault();
+    const sel = document.getElementById('edit-ws-emoji-select');
+    if (sel) sel.value = emoji;
+    const buttons = document.querySelectorAll('#edit-ws-emoji-list button');
+    buttons.forEach(btn => {
+        btn.style.borderColor = 'var(--border)';
+        btn.style.background = 'var(--surface)';
+        btn.style.color = 'inherit';
+    });
+    event.target.style.borderColor = 'var(--primary)';
+    event.target.style.background = 'var(--primary)';
+    event.target.style.color = 'white';
+}
+
+function openEditWorkspaceModal(id, nome, icone, cor) {
+    document.getElementById('edit-ws-id').value = id;
+    document.getElementById('edit-ws-nome').value = nome;
+    document.getElementById('edit-ws-emoji-select').value = icone;
+    document.getElementById('edit-ws-color-select').value = cor;
+    
+    const buttons = document.querySelectorAll('#edit-ws-emoji-list button');
+    buttons.forEach(btn => {
+        if (btn.textContent.trim() === icone) {
+            btn.style.borderColor = 'var(--primary)';
+            btn.style.background = 'var(--primary)';
+            btn.style.color = 'white';
+        } else {
+            btn.style.borderColor = 'var(--border)';
+            btn.style.background = 'var(--surface)';
+            btn.style.color = 'inherit';
+        }
+    });
+    
+    openModal('modal-edit-workspace');
+}
+
+async function updateWorkspace(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-ws-id').value;
+    const fd = new FormData(e.target);
+    const data = await api('/api/workspace/' + id + '/update', { method: 'POST', body: fd });
+    if (data.error) { showToast(data.error, 'error'); return; }
+    closeModal('modal-edit-workspace');
+    showToast('Workspace atualizado!', 'success');
+    setTimeout(() => window.location.reload(), 500);
+}
+
+async function deleteWorkspaceConfirm() {
+    if (!confirm('Tem certeza que deseja excluir este workspace? Todos os projetos serão perdidos.')) return;
+    if (!confirm('Isso não pode ser desfeito. Deseja realmente excluir?')) return;
+    const id = document.getElementById('edit-ws-id').value;
+    const data = await api('/api/workspace/' + id + '/delete', { method: 'POST' });
+    if (data.error) { showToast(data.error, 'error'); return; }
+    closeModal('modal-edit-workspace');
+    showToast('Workspace excluído!', 'success');
+    setTimeout(() => window.location.href = '/', 500);
 }
 
 // ============================================================

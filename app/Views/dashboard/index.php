@@ -2,9 +2,14 @@
 <div class="dash-wrap">
     <!-- Header -->
     <div class="dash-header">
-        <div>
-            <span class="dash-header__ws-label"><?= htmlspecialchars($wsSelected['icone']) ?> <?= htmlspecialchars($wsSelected['nome']) ?></span>
-            <h1>Projetos</h1>
+        <div style="flex:1">
+            <span class="dash-header__ws-label">Projetos</span>
+            <div style="display:flex;align-items:center;gap:8px;position:relative">
+                <h1><?= htmlspecialchars($wsSelected['icone']) ?> <?= htmlspecialchars($wsSelected['nome']) ?></h1>
+                <button type="button" onclick="openEditWorkspaceModal(<?= $activeWs ?>, '<?= htmlspecialchars($wsSelected['nome'], ENT_QUOTES) ?>', '<?= htmlspecialchars($wsSelected['icone'], ENT_QUOTES) ?>', '<?= htmlspecialchars($wsSelected['cor'], ENT_QUOTES) ?>')" title="Editar workspace" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:var(--text-2);font-size:18px;display:flex;align-items:center;justify-content:center;height:32px">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -130,6 +135,62 @@
             </div>
             <button type="submit" class="btn-primary" style="width:100%">Criar</button>
         </form>
+    </div>
+</div>
+
+<!-- Modal: Editar Workspace -->
+<div class="modal-overlay hidden" id="modal-edit-workspace">
+    <div class="modal-box">
+        <span class="modal-close" onclick="closeModal('modal-edit-workspace')">&times;</span>
+        <div class="modal-title">Editar área de trabalho</div>
+        <form id="form-edit-ws" onsubmit="updateWorkspace(event)">
+            <input type="hidden" id="edit-ws-id">
+            <div style="margin-bottom:12px">
+                <label>Nome</label>
+                <input type="text" id="edit-ws-nome" name="nome" required style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:var(--radius-md);font-size:14px;">
+            </div>
+            <div style="margin-bottom:16px">
+                <label>Ícone (emoji)</label>
+                <input type="hidden" id="edit-ws-emoji-select" name="icone" value="💼">
+                <div id="edit-ws-emoji-container" style="overflow:hidden;transition:max-height 0.3s ease;max-height:60px">
+                    <div id="edit-ws-emoji-list" style="display:grid;grid-template-columns:repeat(6, 1fr);gap:8px;margin-top:8px">
+                        <button type="button" onclick="selectEditWorkspaceEmoji('💼', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--primary);background:var(--primary);cursor:pointer;font-size:20px;color:white">💼</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('📚', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📚</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🎯', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🎯</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🚀', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🚀</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('💡', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">💡</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🎨', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🎨</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('📊', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📊</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('📱', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📱</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🏢', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🏢</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('⚙️', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⚙️</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('📝', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">📝</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🔧', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🔧</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('⌚', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⌚</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('☕', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">☕</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('⛵', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⛵</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('⛹', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">⛹</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🚲', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🚲</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🛫', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛫</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🛹', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛹</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🛸', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛸</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🛵', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🛵</button>
+                        <button type="button" onclick="selectEditWorkspaceEmoji('🤖', event)" style="padding:8px;border-radius:var(--radius-md);border:2px solid var(--border);background:var(--surface);cursor:pointer;font-size:20px">🤖</button>
+                    </div>
+                </div>
+                <button type="button" id="edit-ws-emoji-toggle" onclick="toggleEditEmojiList(event)" style="width:100%;padding:8px;margin-top:8px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-md);cursor:pointer;font-size:12px;color:var(--text);font-family:var(--font-sans);">Ver mais ícones</button>
+            </div>
+            <div style="margin-bottom:16px">
+                <label>Cor</label>
+                <input type="color" id="edit-ws-color-select" name="cor" value="#F5F5F5" style="width:80px;height:35px;border:1px solid var(--border);cursor:pointer;border-radius:var(--radius-md);">
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%">Salvar</button>
+        </form>
+        <div style="margin-top:12px">
+            <button type="button" onclick="deleteWorkspaceConfirm()" style="width:100%;padding:10px 16px;border-radius:var(--radius-md);border:1px solid var(--danger);background:var(--danger-light);color:var(--danger);cursor:pointer;font-family:var(--font-sans);font-size:14px;">
+                <i class="bi bi-trash"></i> Excluir workspace
+            </button>
+        </div>
     </div>
 </div>
 
