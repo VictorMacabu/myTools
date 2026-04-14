@@ -341,14 +341,14 @@
   position: absolute;
   top: var(--spacing-sm);
   right: var(--spacing-sm);
-
+  width: 70px;
   height: var(--spacing-2xl);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, var(--opacity-card-bg));
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: var(--fs-icon);
+  justify-content: space-evenly;
+  font-size: var(--fs-icon-lg);
   color: var(--text-2);
   cursor: pointer;
   opacity: 0;
@@ -467,7 +467,9 @@
 }
 
 .topbar-back:hover {
-  background: var(--surface-2);
+  background: var(--primary-hover);
+  color: var(--surface-2);
+  border: none;
 }
 
 .topbar-title {
@@ -1114,6 +1116,7 @@
   background: var(--surface-2);
   color: var(--text);
   border: 1px solid var(--border-strong);
+  margin: 5px;
 }
 
 .btn-secondary:not(:disabled):hover {
@@ -1323,7 +1326,7 @@
   -webkit-appearance: none;
   width: 40px;
   height: 40px;
-  border: 2px solid var(--border);
+  border: 2px solid var(--primary);
   border-radius: var(--radius-pill);
   /* Usa seu token de 99px */
   background: none;
@@ -1336,7 +1339,7 @@
 
 .input-color-circle:hover {
   transform: scale(1.05);
-  border-color: var(--primary);
+  border-color: var(--primary-hover);
 }
 
 /* Chrome, Edge, Safari */
@@ -1364,4 +1367,28 @@
   background: var(--surface);
   cursor: pointer;
   font-size: 20px
+}
+
+.btn-dots {
+  color: var(--text-2);
+  font-size: var(--fs-icon-lg);
+  cursor: pointer;
+}
+
+.btn-dots:hover {
+  color: var(--primary-hover);
+}
+
+.btn-box {
+  display: flex;
+  gap: var(--gap-sm);
+}
+
+.bi-star {
+  color: var(--text-2);
+  transition: color var(--transition-fast);
+}
+
+.bi-star:hover {
+  color: #d97706 ;
 }

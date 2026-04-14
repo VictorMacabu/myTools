@@ -2,7 +2,7 @@
 <div class="proj-shell">
     <!-- Topbar -->
     <div class="proj-topbar">
-        <a href="/?ws=<?= $projeto['workspace_id'] ?>" class="topbar-back" title="Voltar">
+        <a href="/?ws=<?= $projeto['workspace_id'] ?>" class="topbar-back " title="Voltar">
             <i class="bi bi-arrow-left"></i>
         </a>
         <span class="topbar-title"><?= htmlspecialchars($projeto['nome']) ?></span>

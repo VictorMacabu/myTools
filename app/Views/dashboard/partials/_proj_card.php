@@ -13,10 +13,10 @@
 
     <!-- Actions menu -->
     <div class="card-menu">
-        <button type="button" class="btn btn-icon btn-ghost" onclick="toggleFavorite(<?= $p['id'] ?>)" title="Marcar como favorito">
-            <i class="bi <?= $p['favorito'] ? 'bi-star-fill' : 'bi-star' ?>" style="color:<?= $p['favorito'] ? '#d97706' : 'inherit' ?>"></i>
+        <button type="button" onclick="toggleFavorite(<?= $p['id'] ?>)" title="Marcar como favorito">
+            <i class="bi <?= $p['favorito'] ? 'bi-star-fill' : 'bi-star' ?>" style="color:<?= $p['favorito'] ? '#d97706' : '' ?>"></i>
         </button>
-        <button type="button" class="btn btn-icon btn-ghost" onclick="event.stopPropagation();openModal('modal-edit-projeto');fillEditForm(<?= $p['id'] ?>, '<?= htmlspecialchars($p['nome'], ENT_QUOTES) ?>')">
+        <button type="button" class="btn-dots" title="Editar projeto" onclick="event.stopPropagation();openModal('modal-edit-projeto');fillEditForm(<?= $p['id'] ?>, '<?= htmlspecialchars($p['nome'], ENT_QUOTES) ?>')">
             <i class="bi bi-three-dots-vertical"></i>
         </button>
     </div>
