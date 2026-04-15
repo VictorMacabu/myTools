@@ -938,6 +938,83 @@ async function transcreverAudio() {
     const btn = event.target;
     const originalText = btn.innerHTML;
     btn.disabled = true;
+
+    // Esconder seletor e mostrar animação
+    const modalContent = document.querySelector('#modal-transcrever .modal-box');
+    const selectContainer = document.querySelector('#modal-transcrever .modal-box > p, #modal-transcrever select');
+
+    // Criar container da animação
+    const animContainer = document.createElement('div');
+    animContainer.id = 'transcription-anim-container';
+    animContainer.style.cssText = `
+        margin-top: 20px;
+        padding: 20px;
+        background: var(--surface-2);
+        border-radius: var(--radius-lg);
+        position: relative;
+    `;
+
+    // Bola do ping pong
+    const ball = document.createElement('div');
+    ball.style.cssText = `
+        width: 16px;
+        height: 16px;
+        background: var(--primary);
+        border-radius: 50%;
+        position: relative;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        animation: pingPong 1s infinite ease-in-out;
+    `;
+    const ballInner = document.createElement('div');
+    ballInner.style.cssText = `
+        width: 16px;
+        height: 16px;
+        background: var(--primary);
+        border-radius: 50%;
+        position: absolute;
+        left: 8px;
+    `;
+    ball.appendChild(ballInner);
+
+    // Contador
+    const counter = document.createElement('div');
+    counter.id = 'transcription-counter';
+    counter.style.cssText = `
+        text-align: center;
+        margin-top: 16px;
+        font-size: 14px;
+        color: var(--text-2);
+        font-weight: 600;
+    `;
+    counter.innerHTML = '<span style="font-size: 24px; color: var(--primary);">0</span>s';
+
+    animContainer.appendChild(ball);
+    animContainer.appendChild(counter);
+
+    // Esconder elementos antigos
+    const para = modalContent.querySelector('p');
+    const selectEl = modalContent.querySelector('select');
+    if (para) para.style.display = 'none';
+    if (selectEl) selectEl.style.display = 'none';
+
+    // Inserir animação
+    modalContent.insertBefore(animContainer, btn);
+
+    // Iniciar contador
+    let seconds = 0;
+    const ballBounceCount = 0;
+    const counterInterval = setInterval(() => {
+        seconds++;
+        counter.innerHTML = `<span style="font-size: 24px; color: var(--primary);">${seconds}</span>s`;
+        // Pequena animação no contador
+        counter.style.animation = 'none';
+        setTimeout(() => {
+            counter.style.animation = 'pulse-counter 0.3s ease-in-out';
+        }, 10);
+    }, 1000);
+
     btn.innerHTML = '<i class="bi bi-hourglass-split" style="animation:spin 1s linear infinite"></i> Transcrevendo...';
 
     try {
@@ -949,27 +1026,42 @@ async function transcreverAudio() {
             body: fd
         });
 
+        clearInterval(counterInterval);
+
         const data = await res.json();
 
         if (!res.ok || !data.success) {
             showToast('Erro na transcrição: ' + (data.error || 'erro desconhecido'), 'error');
+            // Restaurar interface
+            if (para) para.style.display = 'block';
+            if (selectEl) selectEl.style.display = 'block';
+            animContainer.remove();
             btn.disabled = false;
             btn.innerHTML = originalText;
             return;
         }
+
+        // Mostrar sucesso
+        animContainer.style.opacity = '0';
+        animContainer.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => animContainer.remove(), 300);
 
         // Adicionar arquivos de transcrição à lista
         if (data.txt) addFonteToList(data.txt);
         if (data.md) addFonteToList(data.md);
 
         closeModal('modal-transcrever');
-        showToast('Transcrição concluída! 2 arquivos adicionados.', 'success');
+        showToast(`Transcrição concluída em ${seconds} segundos! 2 arquivos adicionados.`, 'success');
 
         // Recarregar a página para atualizar lista
         setTimeout(() => window.location.reload(), 500);
     } catch (err) {
+        clearInterval(counterInterval);
         showToast('Erro ao transcrever: ' + err.message, 'error');
-    } finally {
+        // Restaurar interface
+        if (para) para.style.display = 'block';
+        if (selectEl) selectEl.style.display = 'block';
+        animContainer.remove();
         btn.disabled = false;
         btn.innerHTML = originalText;
     }

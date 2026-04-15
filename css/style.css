@@ -1281,6 +1281,27 @@
   }
 }
 
+@keyframes pingPong {
+  0% {
+    left: 8px;
+  }
+  50% {
+    left: calc(100% - 24px);
+  }
+  100% {
+    left: 8px;
+  }
+}
+
+@keyframes pulse-counter {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 /* =========================================================
    REFINAMENTOS E NOVAS VARIANTES
    ========================================================= */
