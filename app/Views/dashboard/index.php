@@ -186,7 +186,7 @@
             <div style="margin-bottom:16px">
                 <label>Cor</label>
                 <div style="display:flex;align-items:center;gap:12px">
-                    <input type="color" class="input-color-circle" id="edit-ws-color-select" name="cor" value="#F5F5F5" style="" onchange="updateColorHex(this)">
+                    <input type="color" class="input-color-circle" id="edit-ws-color-select" name="cor" value="#F5F5F5" onchange="updateColorHex(this)">
                     <span id="edit-ws-color-hex" style="font-size:var(--fs-2xl);font-weight:800;color:var(--text-1);min-width:80px">#F5F5F5</span>
                 </div>
             </div>
@@ -215,7 +215,10 @@
             </div>
             <div style="margin-bottom:16px">
                 <label>Cor</label>
-                <input type="color" name="cor" value="#e5e7eb" style="width:50px;height:35px;border:none;cursor:pointer;border-radius:var(--radius-sm);">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <input type="color" class="input-color-circle" id="edit-ws-color-select" name="cor" value="#F5F5F5" onchange="updateColorHex(this)">
+                    <span id="edit-ws-color-hex" style="font-size:var(--fs-2xl);font-weight:800;color:var(--text-1);min-width:80px">#F5F5F5</span>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary" style="width:100%">Criar</button>
         </form>

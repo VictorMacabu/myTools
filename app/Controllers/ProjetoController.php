@@ -5,6 +5,7 @@ use App\Core\Controller;
 use App\Models\Projeto;
 use App\Models\Arquivo;
 use App\Models\TipoArquivo;
+use App\Helpers\Logger;
 
 class ProjetoController extends Controller {
 
@@ -49,6 +50,7 @@ class ProjetoController extends Controller {
         if (empty($files)) {
             // Check if POST body is empty (file rejected by PHP at core level due to size)
             if ($_SERVER['CONTENT_LENGTH'] && (int)$_SERVER['CONTENT_LENGTH'] > 0 && empty($_FILES) && empty($_POST)) {
+                Logger::upload('unknown', 'FAILED', 'Arquivo muito grande');
                 $this->json(['error' => 'Arquivo muito grande. Reduza o tamanho ou use Cortar áudio para dividir.'], 400);
             } else {
                 $this->json(['error' => 'Nenhum arquivo enviado'], 400);
@@ -70,6 +72,16 @@ class ProjetoController extends Controller {
             UPLOAD_ERR_EXTENSION  => 'bloqueado por extensão PHP',
         ];
 
+        // Allowed file extensions
+        $allowedExtensions = [
+            'mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac', 'wma',  // audio
+            'mp4', 'avi', 'mov', 'mkv', 'webm', 'flv',         // video
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff', 'tif', // image
+            'txt', 'pdf', 'doc', 'docx', 'rtf', 'odt', 'md',        // documents
+            'csv', 'xls', 'xlsx', 'ods',                        // spreadsheets
+            'srt', 'vtt'                                        // subtitles
+        ];
+
         $success = [];
         $errors  = [];
 
@@ -79,15 +91,39 @@ class ProjetoController extends Controller {
             if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
                 $code = (int)$file['error'];
                 $msg  = $errorMessages[$code] ?? 'erro desconhecido';
-                $errors[] = $fileName . ': ' . $msg;
+                $errorMsg = $fileName . ': ' . $msg;
+                $errors[] = $errorMsg;
+                Logger::upload($fileName, 'FAILED', $msg);
                 continue;
             }
+
+            // Validate file extension
+            $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowedExtensions, true)) {
+                $errorMsg = $fileName . ': tipo de arquivo não permitido (.' . $ext . ')';
+                $errors[] = $errorMsg;
+                Logger::fileValidation($fileName, false, 'extension not allowed');
+                Logger::upload($fileName, 'FAILED', 'tipo de arquivo não permitido');
+                continue;
+            }
+
+            // Validate file size (max 500MB)
+            $maxSize = 500 * 1024 * 1024; // 500MB in bytes
+            if ($file['size'] > $maxSize) {
+                $errorMsg = $fileName . ': arquivo muito grande (máximo 500MB)';
+                $errors[] = $errorMsg;
+                Logger::upload($fileName, 'FAILED', 'arquivo muito grande');
+                continue;
+            }
+
+            Logger::fileValidation($fileName, true);
 
             $uniqueName = uniqid() . '_' . basename($fileName);
             $dest = $uploadDir . $uniqueName;
 
             if (!move_uploaded_file($file['tmp_name'], $dest)) {
                 $errors[] = $fileName . ': falha ao salvar';
+                Logger::upload($fileName, 'FAILED', 'falha ao salvar arquivo');
                 continue;
             }
 
@@ -101,6 +137,8 @@ class ProjetoController extends Controller {
                 'tamanho_kb' => $tamanho,
                 'projeto_id' => $id,
             ]);
+
+            Logger::upload($fileName, 'SUCCESS', "Tipo: $tipo, Tamanho: {$tamanho}KB");
 
             $success[] = [
                 'id'  => $arquivoId,

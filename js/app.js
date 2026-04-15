@@ -430,6 +430,49 @@ async function deleteFonte(id) {
 // ============================================================
 let uploading = false; // Prevent concurrent uploads
 
+// Allowed file types for validation
+const ALLOWED_EXTENSIONS = [
+    'mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac', 'wma',  // audio
+    'mp4', 'avi', 'mov', 'mkv', 'webm', 'flv',         // video
+    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff', 'tif', // image
+    'txt', 'pdf', 'doc', 'docx', 'rtf', 'odt', 'md',        // documents
+    'csv', 'xls', 'xlsx', 'ods',                        // spreadsheets
+    'srt', 'vtt'                                        // subtitles
+];
+
+function getFileExtension(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    return ext;
+}
+
+function isFileTypeAllowed(filename) {
+    const ext = getFileExtension(filename);
+    return ALLOWED_EXTENSIONS.includes(ext);
+}
+
+function validateFiles(files) {
+    const errors = [];
+    const validFiles = [];
+
+    for (const file of files) {
+        if (!isFileTypeAllowed(file.name)) {
+            errors.push(`${file.name}: tipo de arquivo não permitido (.${getFileExtension(file.name)})`);
+            continue;
+        }
+
+        // Check file size (500MB max)
+        const maxSize = 500 * 1024 * 1024; // 500MB in bytes
+        if (file.size > maxSize) {
+            errors.push(`${file.name}: arquivo muito grande (máximo 500MB)`);
+            continue;
+        }
+
+        validFiles.push(file);
+    }
+
+    return { validFiles, errors };
+}
+
 function setUploadingState(isUploading) {
     uploading = isUploading;
     const fileInput = document.getElementById('file-select');
@@ -451,8 +494,9 @@ function setUploadingState(isUploading) {
             selectBtn.style.opacity = '0.5';
         }
         progressEl.innerHTML =
-            '<div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border);">' +
-                '<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> Enviando arquivos...' +
+            '<div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border);display:flex;align-items:center;gap:12px;">' +
+                '<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite;color:var(--primary)"></i>' +
+                '<span>Carregando arquivos...</span>' +
             '</div>';
     } else {
         if (selectBtn) {
@@ -464,16 +508,80 @@ function setUploadingState(isUploading) {
     }
 }
 
+function showUploadMessage(message, type) {
+    const progressEl = document.getElementById('upload-progress');
+    const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+    const icon = type === 'success' ? 'bi-check-circle' : type === 'error' ? 'bi-exclamation-circle' : 'bi-info-circle';
+
+    const msgEl = document.createElement('div');
+    msgEl.style.cssText = `
+        padding:12px;
+        margin-top:12px;
+        border-radius:var(--radius-md);
+        border:1px solid var(--border);
+        display:flex;
+        align-items:flex-start;
+        gap:12px;
+        background:var(--surface-2);
+        color:var(--text-2);
+    `;
+
+    if (type === 'success') {
+        msgEl.style.background = 'var(--color-success, rgba(34, 197, 94, 0.1))';
+        msgEl.style.borderColor = 'var(--color-success, rgba(34, 197, 94, 0.3))';
+        msgEl.style.color = 'var(--color-success-text, #15803d)';
+    } else if (type === 'error') {
+        msgEl.style.background = 'var(--color-error, rgba(239, 68, 68, 0.1))';
+        msgEl.style.borderColor = 'var(--color-error, rgba(239, 68, 68, 0.3))';
+        msgEl.style.color = 'var(--color-error-text, #991b1b)';
+    }
+
+    msgEl.innerHTML = `
+        <i class="bi ${icon}" style="flex-shrink:0;margin-top:2px"></i>
+        <span style="flex:1;white-space:pre-wrap;word-break:break-word;">${escapeHtml(message)}</span>
+    `;
+
+    if (progressEl.querySelector('div[style*="success"], div[style*="error"]')) {
+        progressEl.querySelector('div[style*="success"], div[style*="error"]').remove();
+    }
+    progressEl.appendChild(msgEl);
+
+    // Auto-hide success message after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            msgEl.style.opacity = '0';
+            msgEl.style.transition = 'opacity 0.3s ease-out';
+            setTimeout(() => msgEl.remove(), 300);
+        }, 5000);
+    }
+}
+
 async function doUpload(fileInput) {
     if (uploading) return;
     if (!fileInput.files.length) { showToast('Selecione ao menos um arquivo', 'error'); return; }
 
-    const totalFiles = fileInput.files.length;
+    // Validate files first
+    const { validFiles, errors } = validateFiles(Array.from(fileInput.files));
+
+    // Show validation errors
+    if (errors.length > 0) {
+        showToast('Verifique os tipos de arquivo antes de enviar', 'error');
+        errors.forEach(error => showUploadMessage(error, 'error'));
+        return;
+    }
+
+    if (validFiles.length === 0) {
+        showToast('Nenhum arquivo válido para enviar', 'error');
+        return;
+    }
+
+    const totalFiles = validFiles.length;
     setUploadingState(true);
 
     let uploadedCount = 0;
+    const uploadErrors = [];
 
-    for (const file of fileInput.files) {
+    for (const file of validFiles) {
         try {
             const fd = new FormData();
             fd.append('arquivo', file);
@@ -485,7 +593,7 @@ async function doUpload(fileInput) {
 
             const contentType = res.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
-                showToast('servidor retornou resposta inválida para ' + file.name, 'error');
+                uploadErrors.push(`${file.name}: servidor retornou resposta inválida`);
                 continue;
             }
 
@@ -493,33 +601,50 @@ async function doUpload(fileInput) {
 
             // Handle errors reported by controller
             if (data.errors && data.errors.length > 0) {
-                showToast(data.errors.join(', '), 'error');
-                continue;
+                data.errors.forEach(err => uploadErrors.push(err));
             }
 
             // Each upload sends one file, so success[0] is the uploaded file
             if (data.success && data.success.length > 0) {
                 addFonteToList(data.success[0]);
                 uploadedCount++;
-            } else {
-                showToast(data.error || 'Erro desconhecido ao enviar ' + file.name, 'error');
+            } else if (!data.errors || data.errors.length === 0) {
+                uploadErrors.push(`${file.name}: erro desconhecido ao enviar`);
             }
 
             const progressEl = document.getElementById('upload-progress');
-            progressEl.innerHTML =
-                '<div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border);">' +
-                    '<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> ' +
-                    (uploadedCount + 1) + ' de ' + totalFiles +
-                '</div>';
+            if (progressEl) {
+                const progressMsg = document.querySelector('.upload-progress-msg');
+                if (progressMsg) {
+                    progressMsg.textContent = `Arquivo ${uploadedCount + 1} de ${totalFiles}`;
+                } else {
+                    progressEl.innerHTML =
+                        '<div class="upload-progress-msg" style="padding:12px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border);display:flex;align-items:center;gap:12px;">' +
+                            '<i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite;color:var(--primary)"></i>' +
+                            `<span>Arquivo ${uploadedCount + 1} de ${totalFiles}</span>` +
+                        '</div>';
+                }
+            }
         } catch (err) {
-            showToast('Erro ao enviar ' + file.name + ': ' + err.message, 'error');
+            uploadErrors.push(`${file.name}: ${err.message}`);
         }
     }
 
     setUploadingState(false);
 
+    // Show results
     if (uploadedCount > 0) {
-        showToast(uploadedCount + ' arquivo(s) adicionado(s)!', 'success');
+        const msg = uploadedCount === 1
+            ? '1 arquivo adicionado com sucesso!'
+            : `${uploadedCount} arquivos adicionados com sucesso!`;
+        showUploadMessage(msg, 'success');
+        showToast(msg, 'success');
+    }
+
+    if (uploadErrors.length > 0) {
+        const errorMsg = uploadErrors.join('\n');
+        showUploadMessage(errorMsg, 'error');
+        showToast(uploadErrors.length + ' arquivo(s) rejeitado(s)', 'error');
     }
 }
 
