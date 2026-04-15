@@ -78,7 +78,7 @@
                     <i class="bi bi-scissors"></i> Cortar &aacute;udio
                 </button>
 
-                <button type="button" class="btn btn-secondary" onclick="openModal('modal-transcrever')">
+                <button type="button" class="btn btn-secondary" onclick="openTranscricao()">
                     <i class="bi bi-mic"></i> Transcrever &aacute;udio
                 </button>
 
