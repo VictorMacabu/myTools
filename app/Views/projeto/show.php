@@ -74,10 +74,6 @@
             <div class="panel-scroll">
                 <div class="tool-section-label">Mídia</div>
 
-                <button type="button" class="btn btn-secondary" onclick="openModal('modal-add-fonte')">
-                    <i class="bi bi-upload"></i> Adicionar fonte
-                </button>
-
                 <button type="button" class="btn btn-secondary" onclick="openAudioCutter()">
                     <i class="bi bi-scissors"></i> Cortar &aacute;udio
                 </button>
