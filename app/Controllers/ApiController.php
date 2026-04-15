@@ -161,6 +161,60 @@ class ApiController extends Controller {
         $this->json(['ok' => true]);
     }
 
+    public function downloadFonte(int $id): void {
+        $fonte = Arquivo::find($id);
+        if (!$fonte) {
+            http_response_code(404);
+            echo 'Arquivo não encontrado';
+            return;
+        }
+
+        $root = dirname(__DIR__, 2);
+        $path = str_replace('/', DIRECTORY_SEPARATOR, $fonte['caminho']);
+        $fullPath = $root . '/' . $path;
+
+        if (!file_exists($fullPath)) {
+            http_response_code(404);
+            echo 'Arquivo não encontrado no servidor';
+            return;
+        }
+
+        // Se for uma transcrição armazenada no banco, retornar conteúdo
+        if ($fonte['tipo'] === 'transcricao' && !empty($fonte['transcricao'])) {
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . basename($fonte['nome']) . '"');
+            header('Content-Length: ' . strlen($fonte['transcricao']));
+            echo $fonte['transcricao'];
+            return;
+        }
+
+        // Caso contrário, retornar arquivo físico
+        $mimeType = $this->getMimeType($fonte['nome']);
+        header('Content-Type: ' . $mimeType);
+        header('Content-Disposition: attachment; filename="' . basename($fonte['nome']) . '"');
+        header('Content-Length: ' . filesize($fullPath));
+        readfile($fullPath);
+    }
+
+    private function getMimeType(string $filename): string {
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $mimes = [
+            'txt' => 'text/plain',
+            'md' => 'text/markdown',
+            'pdf' => 'application/pdf',
+            'csv' => 'text/csv',
+            'json' => 'application/json',
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'mp4' => 'video/mp4',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+        ];
+        return $mimes[$ext] ?? 'application/octet-stream';
+    }
+
     public function updateFonte(int $id): void {
         $data = [];
         if (isset($_POST['nome'])) $data['nome'] = trim($_POST['nome']);

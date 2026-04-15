@@ -6,6 +6,7 @@ use App\Models\Projeto;
 use App\Models\Arquivo;
 use App\Models\TipoArquivo;
 use App\Helpers\Logger;
+use App\Helpers\Transcription;
 
 class ProjetoController extends Controller {
 
@@ -153,6 +154,98 @@ class ProjetoController extends Controller {
         $this->json([
             'success' => $success,
             'errors'  => $errors,
+        ]);
+    }
+
+    public function transcribe(int $id): void {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(['error' => 'Método não suportado'], 405);
+            return;
+        }
+
+        $fontId = (int) ($_POST['fonte_id'] ?? 0);
+        if (!$fontId) {
+            $this->json(['error' => 'ID do arquivo de áudio não fornecido'], 400);
+            return;
+        }
+
+        // Buscar arquivo de áudio
+        $fonte = Arquivo::find($fontId);
+        if (!$fonte || $fonte['projeto_id'] != $id) {
+            $this->json(['error' => 'Arquivo não encontrado'], 404);
+            return;
+        }
+
+        if ($fonte['tipo'] !== 'audio' && $fonte['tipo'] !== 'video') {
+            $this->json(['error' => 'Arquivo não é áudio ou vídeo'], 400);
+            return;
+        }
+
+        $root = dirname(__DIR__, 2);
+        $audioPath = $root . str_replace('/', DIRECTORY_SEPARATOR, $fonte['caminho']);
+
+        if (!file_exists($audioPath)) {
+            $this->json(['error' => 'Arquivo de áudio não encontrado no servidor'], 404);
+            return;
+        }
+
+        // Diretório para transcrições
+        $transcriptDir = dirname(__DIR__, 2) . '/uploads/transcriptions/';
+
+        // Executor transcrição
+        Logger::log('TRANSCRIPTION', 'Iniciando transcrição de: ' . $fonte['nome']);
+        $result = Transcription::transcribe($audioPath, $transcriptDir);
+
+        if (!$result['success']) {
+            Logger::log('TRANSCRIPTION', 'Falha na transcrição: ' . $result['error']);
+            $this->json(['error' => $result['error']], 500);
+            return;
+        }
+
+        // Salvar arquivos de transcrição no banco
+        $txtFileName = basename($fonte['nome'], '.' . pathinfo($fonte['nome'], PATHINFO_EXTENSION)) . '_transcrição.txt';
+        $mdFileName = basename($fonte['nome'], '.' . pathinfo($fonte['nome'], PATHINFO_EXTENSION)) . '_transcrição.md';
+
+        $txtSize = (int) round(strlen($result['txt_content']) / 1024);
+        $mdSize = (int) round(strlen($result['md_content']) / 1024);
+
+        // Criar registros de arquivo para txt e md
+        $txtId = Arquivo::create([
+            'nome'       => $txtFileName,
+            'caminho'    => '/uploads/transcriptions/' . $txtFileName,
+            'tipo'       => 'transcricao',
+            'tamanho_kb' => $txtSize,
+            'projeto_id' => $id,
+            'transcricao' => $result['txt_content'],
+        ]);
+
+        $mdId = Arquivo::create([
+            'nome'       => $mdFileName,
+            'caminho'    => '/uploads/transcriptions/' . $mdFileName,
+            'tipo'       => 'transcricao',
+            'tamanho_kb' => $mdSize,
+            'projeto_id' => $id,
+            'transcricao' => $result['md_content'],
+        ]);
+
+        Logger::log('TRANSCRIPTION', 'Transcrição concluída: ' . $fonte['nome'] . ' → TXT ID: ' . $txtId . ', MD ID: ' . $mdId);
+
+        $this->json([
+            'success' => true,
+            'txt' => [
+                'id'  => $txtId,
+                'nome' => $txtFileName,
+                'tipo' => 'transcricao',
+                'tamanho_kb' => $txtSize,
+                'caminho' => '/uploads/transcriptions/' . $txtFileName,
+            ],
+            'md' => [
+                'id'  => $mdId,
+                'nome' => $mdFileName,
+                'tipo' => 'transcricao',
+                'tamanho_kb' => $mdSize,
+                'caminho' => '/uploads/transcriptions/' . $mdFileName,
+            ],
         ]);
     }
 }

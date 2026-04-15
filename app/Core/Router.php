@@ -40,12 +40,22 @@ class Router {
                 $this->dispatch([\App\Controllers\ApiController::class, 'fontes'], (int) $m[1]);
                 return;
             }
+            // GET /api/fontes/{id}/download
+            if (preg_match('#^/api/fontes/(\d+)/download$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\ApiController::class, 'downloadFonte'], (int) $m[1]);
+                return;
+            }
         }
 
         if ($method === 'POST' && !$isDelete) {
             // POST /api/projeto/{id}/upload
             if (preg_match('#^/api/projeto/(\d+)/upload$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ProjetoController::class, 'upload'], (int) $m[1]);
+                return;
+            }
+            // POST /api/projeto/{id}/transcribe
+            if (preg_match('#^/api/projeto/(\d+)/transcribe$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\ProjetoController::class, 'transcribe'], (int) $m[1]);
                 return;
             }
         }

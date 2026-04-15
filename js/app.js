@@ -411,18 +411,31 @@ function updateChatState() {
     }
 }
 
-async function deleteFonte(id) {
+function deleteFonte(id) {
     if (!confirm('Remover esta fonte?')) return;
-    const data = await api('/api/fontes/' + id + '/delete', { method: 'POST' });
-    if (data.ok) {
-        const el = document.querySelector('.fonte-item[data-id="' + id + '"]');
-        if (el) el.remove();
-        selectedFontes.delete(id);
-        updateChatState();
-        showToast('Fonte removida!', 'success');
-    } else {
-        showToast(data.error || 'Erro ao remover fonte', 'error');
-    }
+    api('/api/fontes/' + id + '/delete', { method: 'POST' }).then(data => {
+        if (data.ok) {
+            const el = document.querySelector('.fonte-item[data-id="' + id + '"]');
+            if (el) el.remove();
+            selectedFontes.delete(id);
+            updateChatState();
+            showToast('Fonte removida!', 'success');
+        } else {
+            showToast(data.error || 'Erro ao remover fonte', 'error');
+        }
+    }).catch(err => {
+        showToast('Erro: ' + err.message, 'error');
+    });
+}
+
+function downloadFonte(id, nome) {
+    event.stopPropagation();
+    const link = document.createElement('a');
+    link.href = '/api/fontes/' + id + '/download';
+    link.download = nome;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 // ============================================================
@@ -666,6 +679,14 @@ function addFonteToList(data) {
     div.dataset.id = data.id;
     div.dataset.tipo = data.tipo;
     div.onclick = function() { toggleFonte(this, data.id); };
+
+    let buttons = '<button class="fonte-del" onclick="event.stopPropagation();deleteFonte(' + data.id + ')" title="Remover"><i class="bi bi-x"></i></button>';
+
+    // Adicionar botão de download para arquivos de transcrição
+    if (data.tipo === 'transcricao' || data.tipo === 'documento') {
+        buttons = '<button class="fonte-del" onclick="event.stopPropagation();downloadFonte(' + data.id + ', \'' + data.nome.replace(/'/g, "\\'") + '\')" title="Download"><i class="bi bi-download"></i></button>' + buttons;
+    }
+
     div.innerHTML =
         '<div class="fonte-check"></div>' +
         '<i class="bi ' + getFileIcon(data.tipo) + ' fonte-icon"></i>' +
@@ -673,7 +694,7 @@ function addFonteToList(data) {
             '<div class="fonte-nome">' + data.nome + '</div>' +
             '<div class="fonte-tipo">' + data.tipo + ' &middot; ' + data.tamanho_kb + ' KB</div>' +
         '</div>' +
-        '<button class="fonte-del" onclick="event.stopPropagation();deleteFonte(' + data.id + ')" title="Remover"><i class="bi bi-x"></i></button>';
+        '<div style="display:flex;gap:4px">' + buttons + '</div>';
     list.appendChild(div);
 }
 
@@ -899,7 +920,7 @@ async function openTranscricao() {
     if (!FONTES) return;
     openModal('modal-transcrever');
     const select = document.getElementById('transcrever-select');
-    const audios = FONTES.filter(f => f.tipo === 'audio');
+    const audios = FONTES.filter(f => f.tipo === 'audio' || f.tipo === 'video');
     select.innerHTML = '<option value="">Selecionar áudio...';
     audios.forEach(a => {
         select.innerHTML += '<option value="' + a.id + '">' + a.nome + '</option>';
@@ -909,7 +930,49 @@ async function openTranscricao() {
 async function transcreverAudio() {
     const select = document.getElementById('transcrever-select');
     if (!select.value) { showToast('Selecione um áudio para transcrever', 'error'); return; }
-    showToast('Transcrição será processada via Whisper - em integração', 'info');
+
+    const fontId = select.value;
+    const option = select.options[select.selectedIndex];
+    const audioName = option.textContent;
+
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split" style="animation:spin 1s linear infinite"></i> Transcrevendo...';
+
+    try {
+        const fd = new FormData();
+        fd.append('fonte_id', fontId);
+
+        const res = await fetch('/api/projeto/' + PROJETO_ID + '/transcribe', {
+            method: 'POST',
+            body: fd
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            showToast('Erro na transcrição: ' + (data.error || 'erro desconhecido'), 'error');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+        }
+
+        // Adicionar arquivos de transcrição à lista
+        if (data.txt) addFonteToList(data.txt);
+        if (data.md) addFonteToList(data.md);
+
+        closeModal('modal-transcrever');
+        showToast('Transcrição concluída! 2 arquivos adicionados.', 'success');
+
+        // Recarregar a página para atualizar lista
+        setTimeout(() => window.location.reload(), 500);
+    } catch (err) {
+        showToast('Erro ao transcrever: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
 }
 
 // ============================================================

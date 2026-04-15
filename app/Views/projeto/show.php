@@ -15,7 +15,7 @@
         <div class="panel panel-left">
             <div class="panel-header">
                 Fontes
-                <button type="button" class="btn btn-primary" onclick="openModal('modal-add-fonte')" title="Adicionar fonte"><i class="bi bi-plus"></i></button>
+                <button type="button" class="btn-dots btn-sm" onclick="openModal('modal-add-fonte')" title="Adicionar fonte"><i class="bi bi-plus"></i></button>
             </div>
             <div class="panel-scroll" id="fontes-list">
                 <?php if (empty($fontes)): ?>
