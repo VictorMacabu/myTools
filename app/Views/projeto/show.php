@@ -25,16 +25,27 @@
                 </div>
                 <?php endif; ?>
                 <?php foreach ($fontes as $f): ?>
+                <?php $sizeMb = number_format(((float)($f['tamanho_kb'] ?? 0)) / 1024, 2, '.', ''); ?>
                 <div class="fonte-item" data-id="<?= $f['id'] ?>" data-tipo="<?= $f['tipo'] ?>" onclick="toggleFonte(this, <?= $f['id'] ?>)">
                     <div class="fonte-check"></div>
-                    <i class="bi <?= \App\Models\TipoArquivo::icon($f['tipo']) ?> fonte-icon"></i>
-                    <div class="fonte-info">
-                        <div class="fonte-nome"><?= htmlspecialchars($f['nome']) ?></div>
-                        <div class="fonte-tipo"><?= $f['tipo'] ?> &middot; <?= $f['tamanho_kb'] ?> KB</div>
+                    <div class="fonte-main">
+                        <i class="bi <?= \App\Models\TipoArquivo::icon($f['tipo']) ?> fonte-icon"></i>
+                        <div class="fonte-info">
+                            <div class="fonte-nome" title="<?= htmlspecialchars($f['nome']) ?>"><?= htmlspecialchars($f['nome']) ?></div>
+                            <div class="fonte-meta">
+                                <span class="fonte-tipo"><?= htmlspecialchars($f['tipo']) ?></span>
+                                <span class="fonte-size"><?= $sizeMb ?> MB</span>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-icon btn-ghost btn-sm" onclick="event.stopPropagation();deleteFonte(<?= $f['id'] ?>)" title="Remover">
-                        <i class="bi bi-x"></i>
-                    </button>
+                    <div class="fonte-actions">
+                        <button type="button" class="fonte-action" onclick="downloadFonte(event, <?= $f['id'] ?>, '<?= htmlspecialchars($f['nome'], ENT_QUOTES) ?>')" title="Download">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button type="button" class="fonte-action danger" onclick="event.stopPropagation();deleteFonte(<?= $f['id'] ?>)" title="Remover">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -192,7 +203,7 @@
         <span class="modal-close" onclick="closeModal('modal-text-editor')">&times;</span>
         <div class="modal-title">Editor de texto</div>
         <select id="text-select" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;margin-bottom:12px;">
-            <option value="">Selecionar documento...</option>
+            <option value="">Selecionar documento de texto...</option>
         </select>
         <textarea id="text-editor-area" rows="20" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;font-family:var(--font-mono);resize:vertical;"></textarea>
         <button class="btn btn-primary" onclick="salvarTexto()" style="width:100%;margin-top:12px">Salvar</button>

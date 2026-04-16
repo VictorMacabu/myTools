@@ -418,6 +418,8 @@ function deleteFonte(id) {
             const el = document.querySelector('.fonte-item[data-id="' + id + '"]');
             if (el) el.remove();
             selectedFontes.delete(id);
+            const idx = Array.isArray(FONTES) ? FONTES.findIndex(f => Number(f.id) === Number(id)) : -1;
+            if (idx >= 0) FONTES.splice(idx, 1);
             updateChatState();
             showToast('Fonte removida!', 'success');
         } else {
@@ -428,8 +430,21 @@ function deleteFonte(id) {
     });
 }
 
-function downloadFonte(id, nome) {
-    event.stopPropagation();
+function downloadFonte(arg1, arg2, arg3) {
+    let evt = null;
+    let id;
+    let nome;
+
+    if (arg1 && typeof arg1 === 'object' && typeof arg1.stopPropagation === 'function') {
+        evt = arg1;
+        id = arg2;
+        nome = arg3;
+    } else {
+        id = arg1;
+        nome = arg2;
+    }
+
+    if (evt) evt.stopPropagation();
     const link = document.createElement('a');
     link.href = '/api/fontes/' + id + '/download';
     link.download = nome;
@@ -669,7 +684,7 @@ async function uploadFonte(e) {
 
 handleFileSelect = doUpload; // Alias for the inline handler
 
-function addFonteToList(data) {
+function _legacyAddFonteToList(data) {
     const list = document.getElementById('fontes-list');
     const emptyEl = list.querySelector('i.bi-inbox');
     if (emptyEl && emptyEl.parentElement) emptyEl.parentElement.remove();
@@ -696,6 +711,89 @@ function addFonteToList(data) {
         '</div>' +
         '<div style="display:flex;gap:4px">' + buttons + '</div>';
     list.appendChild(div);
+}
+
+function formatSizeInMB(sizeKb) {
+    const kb = Number(sizeKb || 0);
+    return (kb / 1024).toFixed(2);
+}
+
+function addFonteToList(data) {
+    const list = document.getElementById('fontes-list');
+    const emptyEl = list.querySelector('i.bi-inbox');
+    if (emptyEl && emptyEl.parentElement) emptyEl.parentElement.remove();
+
+    const div = document.createElement('div');
+    div.className = 'fonte-item';
+    div.dataset.id = data.id;
+    div.dataset.tipo = data.tipo;
+    div.onclick = function() { toggleFonte(div, data.id); };
+
+    const check = document.createElement('div');
+    check.className = 'fonte-check';
+
+    const main = document.createElement('div');
+    main.className = 'fonte-main';
+
+    const icon = document.createElement('i');
+    icon.className = 'bi ' + getFileIcon(data.tipo) + ' fonte-icon';
+
+    const info = document.createElement('div');
+    info.className = 'fonte-info';
+
+    const nome = document.createElement('div');
+    nome.className = 'fonte-nome';
+    nome.title = data.nome;
+    nome.textContent = data.nome;
+
+    const meta = document.createElement('div');
+    meta.className = 'fonte-meta';
+
+    const tipo = document.createElement('span');
+    tipo.className = 'fonte-tipo';
+    tipo.textContent = data.tipo;
+
+    const size = document.createElement('span');
+    size.className = 'fonte-size';
+    size.textContent = formatSizeInMB(data.tamanho_kb) + ' MB';
+
+    const actions = document.createElement('div');
+    actions.className = 'fonte-actions';
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.type = 'button';
+    downloadBtn.className = 'fonte-action';
+    downloadBtn.title = 'Download';
+    downloadBtn.innerHTML = '<i class="bi bi-download"></i>';
+    downloadBtn.onclick = function(e) { downloadFonte(e, data.id, data.nome); };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'fonte-action danger';
+    deleteBtn.title = 'Remover';
+    deleteBtn.innerHTML = '<i class="bi bi-x"></i>';
+    deleteBtn.onclick = function(e) {
+        e.stopPropagation();
+        deleteFonte(data.id);
+    };
+
+    meta.appendChild(tipo);
+    meta.appendChild(size);
+    info.appendChild(nome);
+    info.appendChild(meta);
+    main.appendChild(icon);
+    main.appendChild(info);
+    actions.appendChild(downloadBtn);
+    actions.appendChild(deleteBtn);
+    div.appendChild(check);
+    div.appendChild(main);
+    div.appendChild(actions);
+
+    list.appendChild(div);
+
+    if (Array.isArray(FONTES) && !FONTES.some(f => Number(f.id) === Number(data.id))) {
+        FONTES.push(data);
+    }
 }
 
 function getFileIcon(tipo) {
@@ -875,24 +973,59 @@ async function openImageViewer() {
 // ============================================================
 //  Text Editor
 // ============================================================
+const EDITABLE_TEXT_EXTENSIONS = ['txt', 'md', 'csv', 'json', 'srt', 'vtt'];
+
+function getFileExtFromName(name) {
+    if (!name || typeof name !== 'string') return '';
+    const idx = name.lastIndexOf('.');
+    if (idx <= 0 || idx === name.length - 1) return '';
+    return name.slice(idx + 1).toLowerCase();
+}
+
+function isEditableTextFonte(fonte) {
+    if (!fonte || !['documento', 'transcricao'].includes(fonte.tipo)) return false;
+    const ext = getFileExtFromName(fonte.nome || '');
+    return EDITABLE_TEXT_EXTENSIONS.includes(ext);
+}
+
 async function openTextEditor() {
     if (!FONTES) return;
     openModal('modal-text-editor');
     const select = document.getElementById('text-select');
-    const docs = FONTES.filter(f => ['documento', 'transcricao', 'audio'].includes(f.tipo));
-    select.innerHTML = '<option value="">Selecionar documento...';
+    const docs = FONTES.filter(isEditableTextFonte);
+    select.innerHTML = '<option value="">Selecionar documento de texto...</option>';
     docs.forEach(d => {
         select.innerHTML += '<option value="' + d.id + '" data-caminho="' + d.caminho + '">' + d.nome + '</option>';
     });
-    document.getElementById('text-editor-area').value = '';
+    const area = document.getElementById('text-editor-area');
+    area.value = '';
+
+    if (docs.length === 0) {
+        showToast('Nenhum arquivo de texto disponivel para edicao', 'info');
+    }
 
     select.onchange = async function() {
         const area = document.getElementById('text-editor-area');
         if (!this.value) { area.value = ''; return; }
         area.value = 'Carregando...';
         try {
-            const caminho = this.options[this.selectedIndex].dataset.caminho;
-            const res = await fetch(caminho);
+            const selectedId = Number(this.value);
+            const selectedFonte = FONTES.find(f => Number(f.id) === selectedId);
+            if (!selectedFonte) {
+                area.value = '';
+                return;
+            }
+
+            if (typeof selectedFonte.transcricao === 'string' && selectedFonte.transcricao.length > 0) {
+                area.value = selectedFonte.transcricao;
+                return;
+            }
+
+            const caminho = this.options[this.selectedIndex].dataset.caminho || selectedFonte.caminho;
+            const res = await fetch(caminho, { cache: 'no-store' });
+            if (!res.ok) {
+                throw new Error('Falha ao carregar arquivo (' + res.status + ')');
+            }
             const text = await res.text();
             area.value = text;
         } catch (e) {
@@ -903,14 +1036,32 @@ async function openTextEditor() {
 
 async function salvarTexto() {
     const select = document.getElementById('text-select');
-    const id = select.value;
+    const id = Number(select.value || 0);
     const content = document.getElementById('text-editor-area').value;
     if (!id) { showToast('Selecione um documento primeiro', 'error'); return; }
-    const fd = new FormData();
-    fd.append('transcricao', content);
-    await api('/api/fontes/' + id + '/update', { method: 'POST', body: fd });
-    closeModal('modal-text-editor');
-    showToast('Texto salvo!', 'success');
+    try {
+        const fd = new FormData();
+        fd.append('transcricao', content);
+        const data = await api('/api/fontes/' + id + '/update', { method: 'POST', body: fd });
+
+        const fonte = FONTES.find(f => Number(f.id) === id);
+        if (fonte) {
+            fonte.transcricao = content;
+            if (typeof data.tamanho_kb === 'number') {
+                fonte.tamanho_kb = data.tamanho_kb;
+            }
+        }
+
+        const listItem = document.querySelector('.fonte-item[data-id="' + id + '"] .fonte-size');
+        if (listItem && typeof data.tamanho_kb === 'number') {
+            listItem.textContent = formatSizeInMB(data.tamanho_kb) + ' MB';
+        }
+
+        closeModal('modal-text-editor');
+        showToast('Texto salvo com sucesso!', 'success');
+    } catch (err) {
+        showToast('Erro ao salvar texto: ' + err.message, 'error');
+    }
 }
 
 // ============================================================
