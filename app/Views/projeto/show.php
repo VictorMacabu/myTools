@@ -204,14 +204,21 @@
     <div class="modal-box">
         <span class="modal-close" onclick="closeModal('modal-transcrever')">&times;</span>
         <div class="modal-title">Transcrever &aacute;udio</div>
+        <div id="transcrever-arquivo-atual" class="transcription-file-name hidden" aria-live="polite"></div>
         <p style="color:var(--text-3);font-size:13px;margin-bottom:12px">
             Selecione um &aacute;udio da lista de fontes para transcrever
         </p>
         <select id="transcrever-select" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;margin-bottom:12px;">
             <option value="">Selecionar &aacute;udio...</option>
         </select>
-        <button class="btn btn-primary" onclick="transcreverAudio()" style="width:100%">
+        <div id="transcrever-status" class="transcription-status hidden" aria-live="polite">
+            <div id="transcrever-status-msg" class="transcription-status-msg"></div>
+        </div>
+        <button id="transcrever-btn" class="btn btn-primary" onclick="transcreverAudio(event)" style="width:100%">
             <i class="bi bi-mic"></i> Transcrever
+        </button>
+        <button id="transcrever-cancel-btn" class="btn btn-secondary hidden" onclick="cancelarTranscricao()" style="width:100%;margin-top:8px">
+            <i class="bi bi-x-circle"></i> Cancelar transcri&ccedil;&atilde;o
         </button>
     </div>
 </div>

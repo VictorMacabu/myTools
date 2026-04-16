@@ -11,7 +11,9 @@ class Transcription {
      * @param string $outputDir Diretório para salvar transcrições
      * @return array ['success' => bool, 'txt' => string, 'md' => string, 'error' => string|null]
      */
-    public static function transcribe(string $audioPath, string $outputDir): array {
+    public static function transcribe(string $audioPath, string $outputDir, array $options = []): array {
+        return self::transcribeWithProcess($audioPath, $outputDir, $options);
+
         if (!file_exists($audioPath)) {
             return ['success' => false, 'error' => 'Arquivo de áudio não encontrado'];
         }
@@ -126,6 +128,225 @@ MD;
     /**
      * Limpar diretório temporário
      */
+    /**
+     * @param array{
+     *   output_base_name?: string,
+     *   on_stage?: callable(string,string):void,
+     *   is_cancelled?: callable():bool
+     * } $options
+     */
+    private static function transcribeWithProcess(string $audioPath, string $outputDir, array $options = []): array {
+        $onStage = isset($options['on_stage']) && is_callable($options['on_stage']) ? $options['on_stage'] : null;
+        $isCancelled = isset($options['is_cancelled']) && is_callable($options['is_cancelled'])
+            ? $options['is_cancelled']
+            : static fn(): bool => false;
+
+        if ($isCancelled()) {
+            return ['success' => false, 'cancelled' => true, 'error' => 'Transcricao cancelada antes do inicio'];
+        }
+
+        if (!file_exists($audioPath)) {
+            return ['success' => false, 'error' => 'Arquivo de audio nao encontrado'];
+        }
+
+        if (!is_dir($outputDir) && !@mkdir($outputDir, 0755, true)) {
+            return ['success' => false, 'error' => 'Falha ao criar diretorio de saida'];
+        }
+
+        $inputBaseName = pathinfo($audioPath, PATHINFO_FILENAME);
+        $outputBaseName = self::sanitizeBaseName((string) ($options['output_base_name'] ?? $inputBaseName));
+        $tempOutputDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'whisper_' . uniqid('', true);
+
+        if (!@mkdir($tempOutputDir, 0755, true)) {
+            return ['success' => false, 'error' => 'Falha ao criar diretorio temporario'];
+        }
+
+        try {
+            self::emitStage($onStage, 'transcribing', 'Executando motor de transcricao...');
+
+            $command = sprintf(
+                '%s %s --output_format txt --output_dir %s --language pt',
+                escapeshellcmd(self::$whisperPath),
+                escapeshellarg($audioPath),
+                escapeshellarg($tempOutputDir)
+            );
+
+            [$ok, $exitCode, $stdout, $stderr, $cancelled] = self::runWhisperCommand($command, $isCancelled, $onStage);
+            if ($cancelled) {
+                self::cleanup($tempOutputDir);
+                return ['success' => false, 'cancelled' => true, 'error' => 'Transcricao cancelada pelo usuario'];
+            }
+
+            if (!$ok || $exitCode !== 0) {
+                $errorDetails = trim(self::tailOutput($stderr !== '' ? $stderr : $stdout));
+                self::cleanup($tempOutputDir);
+                return ['success' => false, 'error' => 'Erro ao executar whisper: ' . $errorDetails];
+            }
+
+            self::emitStage($onStage, 'finalizing', 'Finalizando arquivos da transcricao...');
+
+            $txtFile = $tempOutputDir . DIRECTORY_SEPARATOR . $inputBaseName . '.txt';
+            if (!file_exists($txtFile)) {
+                $generatedTxts = glob($tempOutputDir . DIRECTORY_SEPARATOR . '*.txt');
+                if (is_array($generatedTxts) && isset($generatedTxts[0])) {
+                    $txtFile = $generatedTxts[0];
+                }
+            }
+
+            if (!file_exists($txtFile)) {
+                self::cleanup($tempOutputDir);
+                return ['success' => false, 'error' => 'Whisper finalizou, mas o arquivo .txt nao foi encontrado'];
+            }
+
+            $txtContent = file_get_contents($txtFile);
+            if ($txtContent === false) {
+                self::cleanup($tempOutputDir);
+                return ['success' => false, 'error' => 'Falha ao ler arquivo de transcricao'];
+            }
+
+            $mdContent = self::generateMarkdown($outputBaseName, $audioPath, $txtContent);
+
+            $txtPath = self::buildUniqueOutputPath($outputDir, $outputBaseName . '_transcricao', 'txt');
+            $mdPath = self::buildUniqueOutputPath($outputDir, $outputBaseName . '_transcricao', 'md');
+
+            if (@file_put_contents($txtPath, $txtContent) === false) {
+                self::cleanup($tempOutputDir);
+                return ['success' => false, 'error' => 'Falha ao salvar arquivo TXT final'];
+            }
+
+            if (@file_put_contents($mdPath, $mdContent) === false) {
+                @unlink($txtPath);
+                self::cleanup($tempOutputDir);
+                return ['success' => false, 'error' => 'Falha ao salvar arquivo MD final'];
+            }
+
+            self::cleanup($tempOutputDir);
+
+            return [
+                'success' => true,
+                'cancelled' => false,
+                'txt_path' => $txtPath,
+                'md_path' => $mdPath,
+                'txt_file_name' => basename($txtPath),
+                'md_file_name' => basename($mdPath),
+                'txt_content' => $txtContent,
+                'md_content' => $mdContent,
+                'error' => null,
+            ];
+        } catch (\Throwable $e) {
+            self::cleanup($tempOutputDir);
+            return ['success' => false, 'error' => 'Excecao na transcricao: ' . $e->getMessage()];
+        }
+    }
+
+    private static function emitStage(?callable $onStage, string $stage, string $message): void {
+        if ($onStage !== null) {
+            $onStage($stage, $message);
+        }
+    }
+
+    /**
+     * @return array{bool,int,string,string,bool}
+     */
+    private static function runWhisperCommand(string $command, callable $isCancelled, ?callable $onStage): array {
+        $descriptorspec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $process = @proc_open($command, $descriptorspec, $pipes);
+        if (!is_resource($process)) {
+            return [false, 1, '', 'Nao foi possivel iniciar o processo do whisper', false];
+        }
+
+        fclose($pipes[0]);
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+
+        $stdout = '';
+        $stderr = '';
+        $cancelled = false;
+        $startedAt = time();
+        $lastProgressTick = $startedAt;
+
+        while (true) {
+            $stdout .= (string) stream_get_contents($pipes[1]);
+            $stderr .= (string) stream_get_contents($pipes[2]);
+
+            $status = proc_get_status($process);
+            if (!$status['running']) {
+                break;
+            }
+
+            if ($isCancelled()) {
+                $cancelled = true;
+                @proc_terminate($process);
+                usleep(300000);
+                $statusAfterTerminate = proc_get_status($process);
+                if ($statusAfterTerminate['running']) {
+                    @proc_terminate($process, 9);
+                }
+                break;
+            }
+
+            $now = time();
+            if ($onStage !== null && ($now - $lastProgressTick) >= 5) {
+                $onStage('transcribing', 'Processando audio com whisper... ' . ($now - $startedAt) . 's');
+                $lastProgressTick = $now;
+            }
+
+            usleep(200000);
+        }
+
+        $stdout .= (string) stream_get_contents($pipes[1]);
+        $stderr .= (string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        $exitCode = proc_close($process);
+        if ($cancelled) {
+            return [false, $exitCode, $stdout, $stderr, true];
+        }
+
+        return [$exitCode === 0, $exitCode, $stdout, $stderr, false];
+    }
+
+    private static function sanitizeBaseName(string $name): string {
+        $name = trim($name);
+        if ($name === '') {
+            return 'transcricao';
+        }
+        $name = preg_replace('/[^\w\-. ]+/u', '_', $name) ?? 'transcricao';
+        $name = preg_replace('/\s+/', '_', $name) ?? 'transcricao';
+        $name = trim($name, '._- ');
+        return $name !== '' ? $name : 'transcricao';
+    }
+
+    private static function buildUniqueOutputPath(string $outputDir, string $baseName, string $extension): string {
+        $candidate = $outputDir . DIRECTORY_SEPARATOR . $baseName . '.' . $extension;
+        if (!file_exists($candidate)) {
+            return $candidate;
+        }
+
+        $index = 2;
+        while (true) {
+            $candidate = $outputDir . DIRECTORY_SEPARATOR . $baseName . '_' . $index . '.' . $extension;
+            if (!file_exists($candidate)) {
+                return $candidate;
+            }
+            $index++;
+        }
+    }
+
+    private static function tailOutput(string $text, int $maxLines = 14): string {
+        $text = trim($text);
+        if ($text === '') return 'sem detalhes de erro';
+        $lines = preg_split('/\r\n|\r|\n/', $text) ?: [];
+        $tail = array_slice($lines, -$maxLines);
+        return implode(' | ', $tail);
+    }
+
     private static function cleanup(string $dir): void {
         if (!is_dir($dir)) return;
 

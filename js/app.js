@@ -916,7 +916,7 @@ async function salvarTexto() {
 // ============================================================
 //  Transcription
 // ============================================================
-async function openTranscricao() {
+async function openTranscricaoLEGACY() {
     if (!FONTES) return;
     openModal('modal-transcrever');
     const select = document.getElementById('transcrever-select');
@@ -927,7 +927,7 @@ async function openTranscricao() {
     });
 }
 
-async function transcreverAudio() {
+async function transcreverAudioLEGACY() {
     const select = document.getElementById('transcrever-select');
     if (!select.value) { showToast('Selecione um áudio para transcrever', 'error'); return; }
 
@@ -1064,6 +1064,165 @@ async function transcreverAudio() {
         animContainer.remove();
         btn.disabled = false;
         btn.innerHTML = originalText;
+    }
+}
+
+function formatStopwatch(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return [hours, minutes, seconds].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function resetTranscricaoModal() {
+    const modalContent = document.querySelector('#modal-transcrever .modal-box');
+    if (!modalContent) return;
+
+    const para = modalContent.querySelector('p');
+    const selectEl = document.getElementById('transcrever-select');
+    const animContainer = document.getElementById('transcription-anim-container');
+    const fileNameEl = document.getElementById('transcrever-arquivo-atual');
+    const btn = document.getElementById('transcrever-btn');
+
+    if (para) para.style.display = 'block';
+    if (selectEl) selectEl.style.display = 'block';
+    if (animContainer) animContainer.remove();
+    if (fileNameEl) {
+        fileNameEl.textContent = '';
+        fileNameEl.removeAttribute('title');
+        fileNameEl.classList.add('hidden');
+    }
+    if (btn) {
+        btn.disabled = false;
+        if (btn.dataset.originalText) btn.innerHTML = btn.dataset.originalText;
+    }
+}
+
+async function openTranscricao() {
+    if (!FONTES) return;
+    openModal('modal-transcrever');
+    resetTranscricaoModal();
+
+    const select = document.getElementById('transcrever-select');
+    const audios = FONTES.filter(f => f.tipo === 'audio' || f.tipo === 'video');
+    select.innerHTML = '<option value="">Selecionar &aacute;udio...</option>';
+    audios.forEach(a => {
+        select.innerHTML += '<option value="' + a.id + '">' + a.nome + '</option>';
+    });
+}
+
+async function transcreverAudio(triggerEvent) {
+    const select = document.getElementById('transcrever-select');
+    if (!select.value) { showToast('Selecione um audio para transcrever', 'error'); return; }
+
+    const fontId = select.value;
+    const option = select.options[select.selectedIndex];
+    const audioName = option.textContent;
+
+    const btn = triggerEvent?.currentTarget || document.getElementById('transcrever-btn');
+    if (!btn) return;
+
+    if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+    btn.disabled = true;
+
+    const modalContent = document.querySelector('#modal-transcrever .modal-box');
+    if (!modalContent) return;
+
+    const para = modalContent.querySelector('p');
+    const selectEl = modalContent.querySelector('select');
+    const fileNameEl = document.getElementById('transcrever-arquivo-atual');
+    const oldAnimContainer = document.getElementById('transcription-anim-container');
+
+    if (oldAnimContainer) oldAnimContainer.remove();
+    if (fileNameEl) {
+        fileNameEl.textContent = audioName;
+        fileNameEl.title = audioName;
+        fileNameEl.classList.remove('hidden');
+    }
+    if (para) para.style.display = 'none';
+    if (selectEl) selectEl.style.display = 'none';
+
+    const animContainer = document.createElement('div');
+    animContainer.id = 'transcription-anim-container';
+    animContainer.className = 'transcription-anim-container';
+
+    const pingPongArena = document.createElement('div');
+    pingPongArena.className = 'transcription-pingpong-arena';
+
+    const leftPaddle = document.createElement('div');
+    leftPaddle.className = 'transcription-paddle left';
+    const rightPaddle = document.createElement('div');
+    rightPaddle.className = 'transcription-paddle right';
+    const ball = document.createElement('div');
+    ball.className = 'transcription-ball';
+
+    pingPongArena.appendChild(leftPaddle);
+    pingPongArena.appendChild(rightPaddle);
+    pingPongArena.appendChild(ball);
+
+    const counter = document.createElement('div');
+    counter.id = 'transcription-counter';
+    counter.className = 'transcription-counter';
+
+    const counterTime = document.createElement('span');
+    counterTime.className = 'transcription-counter-time';
+    counterTime.textContent = formatStopwatch(0);
+
+    counter.appendChild(counterTime);
+    animContainer.appendChild(pingPongArena);
+    animContainer.appendChild(counter);
+    modalContent.insertBefore(animContainer, btn);
+
+    let elapsedSeconds = 0;
+    const counterInterval = setInterval(() => {
+        elapsedSeconds += 1;
+        counterTime.textContent = formatStopwatch(elapsedSeconds);
+        counter.classList.remove('pulse-counter');
+        void counter.offsetWidth;
+        counter.classList.add('pulse-counter');
+    }, 1000);
+
+    btn.innerHTML = '<i class="bi bi-hourglass-split" style="animation:spin 1s linear infinite"></i> Transcrevendo...';
+
+    try {
+        const fd = new FormData();
+        fd.append('fonte_id', fontId);
+
+        const res = await fetch('/api/projeto/' + PROJETO_ID + '/transcribe', {
+            method: 'POST',
+            body: fd
+        });
+
+        clearInterval(counterInterval);
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            showToast('Erro na transcricao: ' + (data.error || 'erro desconhecido'), 'error');
+            resetTranscricaoModal();
+            return;
+        }
+
+        animContainer.style.opacity = '0';
+        animContainer.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => animContainer.remove(), 300);
+
+        const addedFiles = [];
+        if (data.txt) {
+            addFonteToList(data.txt);
+            addedFiles.push(data.txt);
+        }
+        if (data.md) {
+            addFonteToList(data.md);
+            addedFiles.push(data.md);
+        }
+
+        closeModal('modal-transcrever');
+        showToast(`Transcricao concluida em ${formatStopwatch(elapsedSeconds)}! ${addedFiles.length} arquivo(s) adicionado(s).`, 'success');
+        setTimeout(() => window.location.reload(), 500);
+    } catch (err) {
+        clearInterval(counterInterval);
+        showToast('Erro ao transcrever: ' + err.message, 'error');
+        resetTranscricaoModal();
     }
 }
 

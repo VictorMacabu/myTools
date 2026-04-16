@@ -40,6 +40,11 @@ class Router {
                 $this->dispatch([\App\Controllers\ApiController::class, 'fontes'], (int) $m[1]);
                 return;
             }
+            // GET /api/projeto/{id}/transcribe/{jobId}/status
+            if (preg_match('#^/api/projeto/(\d+)/transcribe/(\d+)/status$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\ProjetoController::class, 'transcribeStatus'], (int) $m[1], (int) $m[2]);
+                return;
+            }
             // GET /api/fontes/{id}/download
             if (preg_match('#^/api/fontes/(\d+)/download$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ApiController::class, 'downloadFonte'], (int) $m[1]);
@@ -56,6 +61,11 @@ class Router {
             // POST /api/projeto/{id}/transcribe
             if (preg_match('#^/api/projeto/(\d+)/transcribe$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ProjetoController::class, 'transcribe'], (int) $m[1]);
+                return;
+            }
+            // POST /api/projeto/{id}/transcribe/{jobId}/cancel
+            if (preg_match('#^/api/projeto/(\d+)/transcribe/(\d+)/cancel$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\ProjetoController::class, 'cancelTranscription'], (int) $m[1], (int) $m[2]);
                 return;
             }
         }
@@ -127,15 +137,11 @@ class Router {
         echo '404 - Page not found';
     }
 
-    private function dispatch($handler, ?int $param = null): void {
+    private function dispatch($handler, ...$params): void {
         if (is_array($handler) && count($handler) === 2 && class_exists($handler[0])) {
             $controller = new $handler[0]();
             $action = $handler[1];
-            if ($param !== null) {
-                $controller->$action($param);
-            } else {
-                $controller->$action();
-            }
+            $controller->$action(...$params);
             return;
         }
         if (is_callable($handler)) {

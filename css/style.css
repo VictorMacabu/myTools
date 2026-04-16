@@ -1281,15 +1281,153 @@
   }
 }
 
-@keyframes pingPong {
+.transcription-file-name {
+  margin: -8px 0 12px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transcription-anim-container {
+  margin-top: 12px;
+  padding: 18px;
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+.transcription-pingpong-arena {
+  --pingpong-gap: 20px;
+  --pingpong-ball-size: 14px;
+  position: relative;
+  height: 86px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #f4f8fd 0%, #e8f0fa 100%);
+  overflow: hidden;
+}
+
+.transcription-pingpong-arena::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 50%;
+  border-left: 2px dashed #ffffffaa;
+  transform: translateX(-50%);
+}
+
+.transcription-paddle {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  box-shadow: 0 1px 2px #0f4f8f55;
+}
+
+.transcription-paddle.left {
+  left: 12px;
+  animation: pingPongPaddleLeft 1.4s ease-in-out infinite;
+}
+
+.transcription-paddle.right {
+  right: 12px;
+  animation: pingPongPaddleRight 1.4s ease-in-out infinite;
+}
+
+.transcription-ball {
+  position: absolute;
+  width: var(--pingpong-ball-size);
+  height: var(--pingpong-ball-size);
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 2px 5px #0f4f8f55;
+  animation: pingPongBallX 1.4s linear infinite, pingPongBallY 1.4s ease-in-out infinite;
+}
+
+.transcription-counter {
+  margin-top: 14px;
+  text-align: center;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.transcription-counter-time {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.transcription-status {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.transcription-status-msg {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.transcription-counter.pulse-counter {
+  animation: pulse-counter 0.3s ease-in-out;
+}
+
+@keyframes pingPongBallX {
   0% {
-    left: 8px;
+    left: var(--pingpong-gap);
   }
   50% {
-    left: calc(100% - 24px);
+    left: calc(100% - var(--pingpong-gap) - var(--pingpong-ball-size));
   }
   100% {
-    left: 8px;
+    left: var(--pingpong-gap);
+  }
+}
+
+@keyframes pingPongBallY {
+  0% {
+    top: 50%;
+  }
+  25% {
+    top: 34%;
+  }
+  50% {
+    top: 62%;
+  }
+  75% {
+    top: 38%;
+  }
+  100% {
+    top: 50%;
+  }
+}
+
+@keyframes pingPongPaddleLeft {
+  0%, 44%, 100% {
+    transform: translateY(-50%) translateX(0);
+  }
+  6% {
+    transform: translateY(-50%) translateX(3px);
+  }
+}
+
+@keyframes pingPongPaddleRight {
+  0%, 48%, 100% {
+    transform: translateY(-50%) translateX(0);
+  }
+  54% {
+    transform: translateY(-50%) translateX(-3px);
   }
 }
 
@@ -1298,7 +1436,7 @@
     transform: scale(1);
   }
   50% {
-    transform: scale(1.1);
+    transform: scale(1.08);
   }
 }
 
