@@ -29,7 +29,7 @@ $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // Static file serving
 $staticExts = ['css', 'js', 'ico', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'];
-$uploadExts = ['mp3', 'wav', 'm4a', 'ogg', 'mp4', 'webm', 'avi', 'mov', 'mkv', 'pdf', 'txt', 'doc', 'docx'];
+$uploadExts = ['mp3', 'wav', 'm4a', 'ogg', 'mp4', 'webm', 'avi', 'mov', 'mkv', 'pdf', 'txt', 'doc', 'docx', 'md', 'srt', 'vtt'];
 $ext = pathinfo($uri, PATHINFO_EXTENSION);
 
 $root = __DIR__;
@@ -63,6 +63,7 @@ if (file_exists($file) && is_file($file)) {
         'mkv'    => 'video/x-matroska',
         'pdf'    => 'application/pdf',
         'txt'    => 'text/plain',
+        'md'     => 'text/markdown',
         'json'   => 'application/json',
         'csv'    => 'text/csv',
         'xls'    => 'application/vnd.ms-excel',
