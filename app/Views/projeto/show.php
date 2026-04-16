@@ -134,40 +134,60 @@
     </div>
 </div>
 
-<!-- Modal: Cortar &Aacute;udio -->
+<!-- Modal: Cortar áudio -->
 <div class="modal-overlay hidden" id="modal-cortar-audio">
-    <div class="modal-box" style="width:560px">
+    <div class="modal-box audio-cutter-modal">
         <span class="modal-close" onclick="closeModal('modal-cortar-audio')">&times;</span>
         <div class="modal-title">Cortar &aacute;udio</div>
         <form id="form-cortar-audio" onsubmit="return false;">
-            <div style="margin-bottom:12px">
+            <div class="audio-cutter-field">
                 <label>Selecione o &aacute;udio</label>
-                <select id="cortar-audio-select" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;">
+                <select id="cortar-audio-select" class="audio-cutter-select">
                     <option value="">Carregando...</option>
                 </select>
             </div>
-            <div id="cortar-audio-info" class="hidden" style="margin-bottom:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-md);font-size:13px;">
-                Dura&ccedil;&atilde;o: <strong id="cortar-duracao">--:--</strong>
+            <div id="cortar-audio-info" class="hidden audio-cutter-info">
+                <span>Dura&ccedil;&atilde;o: <strong id="cortar-duracao">--:--</strong></span>
+                <span>Sele&ccedil;&atilde;o: <strong id="cortar-selecao">--:--</strong></span>
             </div>
-            <div class="hidden" id="cortar-audio-controls">
-                <div style="margin-bottom:12px">
-                    <label>In&iacute;cio: <span id="start-label">0:00</span></label>
-                    <input type="range" id="cortar-start" min="0" max="100" value="0" step="0.1"
-                           style="width:100%;" oninput="updateCutterLabels()">
+
+            <div class="hidden audio-cutter-controls" id="cortar-audio-controls">
+                <audio id="cortar-audio-player" class="audio-cutter-player" controls preload="metadata"></audio>
+
+                <div class="audio-cutter-selection">
+                    <div class="audio-cutter-selection-header">
+                        <span>In&iacute;cio: <strong id="start-label">0:00</strong></span>
+                        <span>Fim: <strong id="end-label">0:00</strong></span>
+                    </div>
+                    <div class="audio-cutter-range-wrap">
+                        <div id="cortar-start-tip" class="audio-cutter-tip start">0:00</div>
+                        <div id="cortar-end-tip" class="audio-cutter-tip end">0:00</div>
+                        <div class="audio-cutter-range-track"></div>
+                        <div id="cortar-range-fill" class="audio-cutter-range-fill"></div>
+                        <input type="range" id="cortar-start" min="0" max="0" value="0" step="0.1"
+                               class="audio-cutter-range" oninput="updateCutterLabels('start')">
+                        <input type="range" id="cortar-end" min="0" max="0" value="0" step="0.1"
+                               class="audio-cutter-range" oninput="updateCutterLabels('end')">
+                    </div>
                 </div>
-                <div style="margin-bottom:16px">
-                    <label>Fim: <span id="end-label">--:--</span></label>
-                    <input type="range" id="cortar-end" min="0" max="100" value="100" step="0.1"
-                           style="width:100%;" oninput="updateCutterLabels()">
-                </div>
-                <div style="margin-bottom:12px">
-                    <label>Nome do trecho cortado</label>
-                    <input type="text" id="cortar-nome" placeholder="Ex: trecho_intro.mp3"
-                           style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:14px;">
-                </div>
-                <button class="btn btn-primary" onclick="cortarAudio()" style="width:100%">
-                    <i class="bi bi-scissors"></i> Cortar e salvar
+
+                <button type="button" class="btn btn-secondary" onclick="reproduzirTrechoSelecionado()" style="width:100%;margin-bottom:12px;">
+                    <i class="bi bi-play-fill"></i> Reproduzir trecho selecionado
                 </button>
+
+                <div class="audio-cutter-field">
+                    <label>Nome do novo trecho</label>
+                    <input type="text" id="cortar-nome" class="audio-cutter-input" placeholder="Ex: trecho_intro">
+                </div>
+
+                <div class="audio-cutter-actions">
+                    <button id="cortar-btn-remove" type="button" class="btn btn-danger" onclick="cortarAudio('remove')">
+                        <i class="bi bi-eraser"></i> Apagar trecho selecionado
+                    </button>
+                    <button id="cortar-btn-extract" type="button" class="btn btn-primary" onclick="cortarAudio('extract')">
+                        <i class="bi bi-scissors"></i> Salvar trecho em Fontes
+                    </button>
+                </div>
             </div>
         </form>
     </div>

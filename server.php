@@ -26,6 +26,9 @@ $requestLog = date('Y-m-d H:i:s')
 @file_put_contents($logFile, $requestLog, FILE_APPEND | LOCK_EX);
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if (!is_string($uri)) {
+    $uri = '/';
+}
 
 // Static file serving
 $staticExts = ['css', 'js', 'ico', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'];
@@ -34,9 +37,93 @@ $ext = pathinfo($uri, PATHINFO_EXTENSION);
 
 $root = __DIR__;
 
-// Check if file exists directly
-$file = $root . $uri;
-if (file_exists($file) && is_file($file)) {
+/**
+ * Stream file contents safely (supports Range requests for media seeking).
+ */
+function streamFileResponse(string $filePath, string $mimeType): void {
+    $size = @filesize($filePath);
+    if ($size === false || $size < 0) {
+        http_response_code(404);
+        echo 'Arquivo nao encontrado';
+        return;
+    }
+
+    // Avoid buffering huge files in memory.
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+
+    $start = 0;
+    $end = $size - 1;
+    $isPartial = false;
+
+    if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d*)-(\d*)/i', (string) $_SERVER['HTTP_RANGE'], $m)) {
+        $rangeStart = $m[1] !== '' ? (int) $m[1] : null;
+        $rangeEnd = $m[2] !== '' ? (int) $m[2] : null;
+
+        if ($rangeStart !== null && $rangeEnd !== null) {
+            $start = $rangeStart;
+            $end = min($rangeEnd, $end);
+        } elseif ($rangeStart !== null) {
+            $start = $rangeStart;
+        } elseif ($rangeEnd !== null) {
+            $suffixLen = $rangeEnd;
+            $start = max(0, $size - $suffixLen);
+        }
+
+        if ($start > $end || $start < 0 || $end >= $size) {
+            http_response_code(416);
+            header('Content-Range: bytes */' . $size);
+            return;
+        }
+
+        $isPartial = true;
+    }
+
+    $length = ($end - $start) + 1;
+
+    if ($isPartial) {
+        http_response_code(206);
+        header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
+    } else {
+        http_response_code(200);
+    }
+
+    header('Content-Type: ' . $mimeType);
+    header('Accept-Ranges: bytes');
+    header('Content-Length: ' . $length);
+
+    $fp = @fopen($filePath, 'rb');
+    if ($fp === false) {
+        http_response_code(500);
+        echo 'Falha ao abrir arquivo';
+        return;
+    }
+
+    if ($start > 0) {
+        fseek($fp, $start);
+    }
+
+    $chunkSize = 8192 * 16; // 128KB
+    $remaining = $length;
+    while ($remaining > 0 && !feof($fp)) {
+        $read = (int) min($chunkSize, $remaining);
+        $buffer = fread($fp, $read);
+        if ($buffer === false || $buffer === '') break;
+        echo $buffer;
+        $remaining -= strlen($buffer);
+        if (connection_aborted()) break;
+        flush();
+    }
+
+    fclose($fp);
+}
+
+// Check if file exists directly (and stays inside project root)
+$candidate = $root . $uri;
+$file = realpath($candidate);
+$rootReal = realpath($root);
+if ($file !== false && $rootReal !== false && str_starts_with($file, $rootReal . DIRECTORY_SEPARATOR) && is_file($file)) {
     // Serve static files
     $mimeMap = [
         'css'    => 'text/css',
@@ -75,9 +162,9 @@ if (file_exists($file) && is_file($file)) {
         'rtf'    => 'application/rtf',
     ];
 
-    $mime = $mimeMap[$ext] ?? 'application/octet-stream';
-    header('Content-Type: ' . $mime);
-    readfile($file);
+    $servedExt = strtolower((string) pathinfo($file, PATHINFO_EXTENSION));
+    $mime = $mimeMap[$servedExt] ?? 'application/octet-stream';
+    streamFileResponse($file, $mime);
     return true;
 }
 

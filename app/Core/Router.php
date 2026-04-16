@@ -58,6 +58,11 @@ class Router {
                 $this->dispatch([\App\Controllers\ProjetoController::class, 'upload'], (int) $m[1]);
                 return;
             }
+            // POST /api/projeto/{id}/audio/cut
+            if (preg_match('#^/api/projeto/(\d+)/audio/cut$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\ProjetoController::class, 'cutAudio'], (int) $m[1]);
+                return;
+            }
             // POST /api/projeto/{id}/transcribe
             if (preg_match('#^/api/projeto/(\d+)/transcribe$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ProjetoController::class, 'transcribe'], (int) $m[1]);

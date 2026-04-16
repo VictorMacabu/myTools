@@ -159,6 +159,169 @@ class ProjetoController extends Controller {
         ]);
     }
 
+    public function cutAudio(int $id): void {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(['error' => 'Metodo nao suportado'], 405);
+            return;
+        }
+
+        $fonteId = (int) ($_POST['fonte_id'] ?? 0);
+        $startSec = (float) ($_POST['start_sec'] ?? 0);
+        $endSec = (float) ($_POST['end_sec'] ?? 0);
+        $mode = strtolower(trim((string) ($_POST['mode'] ?? 'extract')));
+        $newName = trim((string) ($_POST['new_name'] ?? ''));
+
+        if ($fonteId <= 0) {
+            $this->json(['error' => 'Arquivo de audio nao informado'], 400);
+            return;
+        }
+
+        if ($endSec <= $startSec) {
+            $this->json(['error' => 'Intervalo de corte invalido'], 400);
+            return;
+        }
+
+        if (($endSec - $startSec) < 0.1) {
+            $this->json(['error' => 'O trecho selecionado precisa ser maior que 0.1s'], 400);
+            return;
+        }
+
+        if ($mode !== 'extract' && $mode !== 'remove') {
+            $this->json(['error' => 'Modo de corte invalido'], 400);
+            return;
+        }
+
+        if ($mode === 'extract' && $newName === '') {
+            $this->json(['error' => 'Informe o nome do novo arquivo para salvar o trecho'], 400);
+            return;
+        }
+
+        $fonte = Arquivo::find($fonteId);
+        if (!$fonte || (int) $fonte['projeto_id'] !== $id) {
+            $this->json(['error' => 'Arquivo nao encontrado'], 404);
+            return;
+        }
+
+        if (!in_array((string) $fonte['tipo'], ['audio', 'video'], true)) {
+            $this->json(['error' => 'Somente arquivos de audio/video podem ser cortados'], 400);
+            return;
+        }
+
+        $root = dirname(__DIR__, 2);
+        $sourcePath = $root . str_replace('/', DIRECTORY_SEPARATOR, (string) $fonte['caminho']);
+        if (!file_exists($sourcePath)) {
+            $this->json(['error' => 'Arquivo de origem nao encontrado no servidor'], 404);
+            return;
+        }
+
+        $duration = $this->probeMediaDuration($sourcePath);
+        if ($duration > 0) {
+            if ($startSec < 0) $startSec = 0;
+            if ($endSec > $duration) $endSec = $duration;
+        }
+
+        if ($endSec <= $startSec) {
+            $this->json(['error' => 'Intervalo de corte fora da duracao do arquivo'], 400);
+            return;
+        }
+
+        $sourceBase = pathinfo((string) $fonte['nome'], PATHINFO_FILENAME);
+        $targetFileName = '';
+        $outputPath = '';
+
+        if ($mode === 'extract') {
+            $outputDir = $root . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'cuts';
+            if (!is_dir($outputDir) && !mkdir($outputDir, 0755, true) && !is_dir($outputDir)) {
+                $this->json(['error' => 'Nao foi possivel preparar o diretorio de saida'], 500);
+                return;
+            }
+
+            $targetFileName = $this->buildComposedCutName($newName, $sourceBase);
+            $targetFileName = $this->buildUniqueFileName($outputDir, $targetFileName);
+            $outputPath = $outputDir . DIRECTORY_SEPARATOR . $targetFileName;
+            [$ok, $errorOutput] = $this->runFfmpegExtractSegment($sourcePath, $outputPath, $startSec, $endSec);
+        } else {
+            $sourceExt = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
+            $sourceDir = dirname($sourcePath);
+            $tmpName = 'tmp_cut_' . uniqid('', true) . ($sourceExt !== '' ? ('.' . $sourceExt) : '.tmp');
+            $outputPath = $sourceDir . DIRECTORY_SEPARATOR . $tmpName;
+            [$ok, $errorOutput] = $this->runFfmpegRemoveSegment($sourcePath, $outputPath, $startSec, $endSec, $sourceExt);
+            $targetFileName = (string) $fonte['nome'];
+        }
+
+        if (!$ok) {
+            $this->json([
+                'error' => 'Falha ao executar ffmpeg para cortar audio',
+                'details' => substr($errorOutput, 0, 400),
+            ], 500);
+            return;
+        }
+
+        if (!file_exists($outputPath) || filesize($outputPath) <= 0) {
+            $this->json(['error' => 'Arquivo de corte nao foi gerado corretamente'], 500);
+            return;
+        }
+
+        $sizeKb = (int) round(filesize($outputPath) / 1024);
+
+        if ($mode === 'remove') {
+            if (file_exists($sourcePath) && !@unlink($sourcePath)) {
+                @unlink($outputPath);
+                $this->json(['error' => 'Nao foi possivel substituir o arquivo original'], 500);
+                return;
+            }
+            if (!@rename($outputPath, $sourcePath)) {
+                @unlink($outputPath);
+                $this->json(['error' => 'Falha ao gravar o arquivo cortado no original'], 500);
+                return;
+            }
+
+            Arquivo::update((int) $fonte['id'], ['tamanho_kb' => $sizeKb]);
+            $updated = Arquivo::find((int) $fonte['id']);
+            $payload = $updated ? $this->fontePayload($updated) : [
+                'id' => (int) $fonte['id'],
+                'nome' => (string) $fonte['nome'],
+                'tipo' => (string) $fonte['tipo'],
+                'caminho' => (string) $fonte['caminho'],
+                'tamanho_kb' => $sizeKb,
+            ];
+
+            Logger::log('AUDIO_CUT', "Projeto {$id} | Fonte {$fonteId} | Modo remove | Arquivo original sobrescrito");
+
+            $this->json([
+                'success' => true,
+                'mode' => 'remove',
+                'message' => 'Trecho removido e arquivo original atualizado em Fontes.',
+                'fonte' => $payload,
+            ]);
+            return;
+        }
+
+        $relativePath = '/uploads/cuts/' . $targetFileName;
+        $newId = Arquivo::create([
+            'nome' => $targetFileName,
+            'caminho' => $relativePath,
+            'tipo' => 'audio',
+            'tamanho_kb' => $sizeKb,
+            'projeto_id' => $id,
+        ]);
+
+        Logger::log('AUDIO_CUT', "Projeto {$id} | Fonte {$fonteId} | Modo extract | Novo arquivo {$targetFileName}");
+
+        $this->json([
+            'success' => true,
+            'mode' => 'extract',
+            'message' => 'Trecho recortado salvo em Fontes.',
+            'fonte' => [
+                'id' => $newId,
+                'nome' => $targetFileName,
+                'tipo' => 'audio',
+                'caminho' => $relativePath,
+                'tamanho_kb' => $sizeKb,
+            ],
+        ]);
+    }
+
     public function transcribeLegacy(int $id): void {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->json(['error' => 'Método não suportado'], 405);
@@ -368,6 +531,102 @@ class ProjetoController extends Controller {
             'message' => 'Cancelamento solicitado.',
             'job' => $this->jobPayload($updated ?: $job),
         ]);
+    }
+
+    /**
+     * @return array{0:bool,1:string}
+     */
+    private function runFfmpegExtractSegment(string $inputPath, string $outputPath, float $startSec, float $endSec): array {
+        $command = sprintf(
+            'ffmpeg -y -i %s -ss %s -to %s -vn -acodec libmp3lame -b:a 192k %s 2>&1',
+            escapeshellarg($inputPath),
+            escapeshellarg(number_format($startSec, 3, '.', '')),
+            escapeshellarg(number_format($endSec, 3, '.', '')),
+            escapeshellarg($outputPath)
+        );
+        return $this->runCommand($command);
+    }
+
+    /**
+     * @return array{0:bool,1:string}
+     */
+    private function runFfmpegRemoveSegment(string $inputPath, string $outputPath, float $startSec, float $endSec, string $outputExt = 'mp3'): array {
+        $filter = sprintf(
+            "[0:a]aselect='not(between(t\\,%s\\,%s))',asetpts=N/SR/TB[outa]",
+            number_format($startSec, 3, '.', ''),
+            number_format($endSec, 3, '.', '')
+        );
+        $codecArgs = $this->audioCodecArgsForExtension($outputExt);
+
+        $command = sprintf(
+            'ffmpeg -y -i %s -vn -filter_complex %s -map [outa] %s %s 2>&1',
+            escapeshellarg($inputPath),
+            escapeshellarg($filter),
+            $codecArgs,
+            escapeshellarg($outputPath)
+        );
+        return $this->runCommand($command);
+    }
+
+    private function audioCodecArgsForExtension(string $ext): string {
+        $ext = strtolower(trim($ext));
+        return match ($ext) {
+            'wav' => '-c:a pcm_s16le',
+            'flac' => '-c:a flac',
+            'ogg' => '-c:a libvorbis -q:a 5',
+            'm4a', 'mp4', 'aac' => '-c:a aac -b:a 192k',
+            'wma' => '-c:a wmav2 -b:a 192k',
+            default => '-acodec libmp3lame -b:a 192k',
+        };
+    }
+
+    /**
+     * @return array{0:bool,1:string}
+     */
+    private function runCommand(string $command): array {
+        $output = [];
+        $exitCode = 1;
+        exec($command, $output, $exitCode);
+        $joined = trim(implode("\n", $output));
+        return [$exitCode === 0, $joined];
+    }
+
+    private function probeMediaDuration(string $inputPath): float {
+        $command = sprintf(
+            'ffprobe -v error -show_entries format=duration -of default=nokey=1:noprint_wrappers=1 %s 2>&1',
+            escapeshellarg($inputPath)
+        );
+        [$ok, $output] = $this->runCommand($command);
+        if (!$ok) return 0.0;
+        $duration = (float) trim($output);
+        return $duration > 0 ? $duration : 0.0;
+    }
+
+    private function buildComposedCutName(string $newName, string $oldBaseName): string {
+        $newBase = $this->sanitizeCutToken(pathinfo($newName, PATHINFO_FILENAME));
+        $oldBase = $this->sanitizeCutToken(pathinfo($oldBaseName, PATHINFO_FILENAME));
+        if ($newBase === '') $newBase = 'trecho';
+        if ($oldBase === '') $oldBase = 'audio';
+        return $newBase . '-' . $oldBase . '.MP3';
+    }
+
+    private function sanitizeCutToken(string $value): string {
+        $value = trim($value);
+        $value = preg_replace('/[^\p{L}\p{N}_-]+/u', '_', $value) ?? '';
+        $value = preg_replace('/_+/', '_', $value) ?? '';
+        return trim($value, '._- ');
+    }
+
+    private function buildUniqueFileName(string $dir, string $fileName): string {
+        $base = pathinfo($fileName, PATHINFO_FILENAME);
+        $ext = pathinfo($fileName, PATHINFO_EXTENSION);
+        $candidate = $fileName;
+        $index = 1;
+        while (file_exists($dir . DIRECTORY_SEPARATOR . $candidate)) {
+            $candidate = $base . '_' . $index . ($ext !== '' ? '.' . $ext : '');
+            $index++;
+        }
+        return $candidate;
     }
 
     private function fontePayload(array $fonte): array {

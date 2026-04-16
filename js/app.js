@@ -7,16 +7,24 @@ function openModal(id) {
 }
 function closeModal(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
+    if (!el) return;
+
+    if (id === 'modal-cortar-audio') {
+        stopAudioCutterPlayback();
+    }
+
+    el.classList.add('hidden');
 }
 
 // Close modals on overlay click / Escape key
 document.addEventListener('click', e => {
-    if (e.target.classList.contains('modal-overlay')) e.target.classList.add('hidden');
+    if (e.target.classList.contains('modal-overlay') && e.target.id) {
+        closeModal(e.target.id);
+    }
 });
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-        document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+        document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => closeModal(m.id));
     }
 });
 
@@ -796,6 +804,36 @@ function addFonteToList(data) {
     }
 }
 
+function updateFonteInList(data) {
+    if (!data || !data.id) return;
+
+    const idx = Array.isArray(FONTES) ? FONTES.findIndex(f => Number(f.id) === Number(data.id)) : -1;
+    if (idx >= 0) {
+        FONTES[idx] = { ...FONTES[idx], ...data };
+    }
+
+    const item = document.querySelector('.fonte-item[data-id="' + data.id + '"]');
+    if (!item) return;
+
+    item.dataset.tipo = data.tipo || item.dataset.tipo;
+
+    const nameEl = item.querySelector('.fonte-nome');
+    if (nameEl && data.nome) {
+        nameEl.textContent = data.nome;
+        nameEl.title = data.nome;
+    }
+
+    const typeEl = item.querySelector('.fonte-tipo');
+    if (typeEl && data.tipo) {
+        typeEl.textContent = data.tipo;
+    }
+
+    const sizeEl = item.querySelector('.fonte-size');
+    if (sizeEl && typeof data.tamanho_kb !== 'undefined') {
+        sizeEl.textContent = formatSizeInMB(data.tamanho_kb) + ' MB';
+    }
+}
+
 function getFileIcon(tipo) {
     const icons = {
         audio: 'bi-music-note-beamed',
@@ -878,11 +916,11 @@ if (chatInput) {
 // ============================================================
 //  Audio Cutter Modal
 // ============================================================
-async function openAudioCutter() {
+async function openAudioCutterLEGACY() {
     if (!FONTES) return;
     openModal('modal-cortar-audio');
     const select = document.getElementById('cortar-audio-select');
-    const audios = FONTES.filter(f => f.tipo === 'audio' || f.tipo === 'video');
+    const audios = FONTES.filter(f => f.tipo === 'audio');
     select.innerHTML = '<option value="">Selecione um áudio...</option>';
     audios.forEach(a => {
         select.innerHTML += '<option value="' + a.id + '" data-caminho="' + a.caminho + '">' + a.nome + ' (' + a.tamanho_kb + ' KB)</option>';
@@ -899,7 +937,7 @@ async function openAudioCutter() {
     };
 }
 
-function updateCutterLabels() {
+function updateCutterLabelsLEGACY() {
     const s = document.getElementById('cortar-start');
     const e = document.getElementById('cortar-end');
     let sv = parseFloat(s.value) || 0;
@@ -908,16 +946,285 @@ function updateCutterLabels() {
     document.getElementById('start-label').textContent = formatTime(sv);
     document.getElementById('end-label').textContent = formatTime(ev);
 }
-function formatTime(sec) {
+function formatTimeLEGACY(sec) {
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return m + ':' + String(s).padStart(2, '0');
 }
 
-async function cortarAudio() {
+async function cortarAudioLEGACY() {
     const select = document.getElementById('cortar-audio-select');
     if (!select.value) return;
     showToast('Corte de áudio: funcionalidade em integração com pydub', 'info');
+}
+
+const audioCutterState = {
+    duration: 0,
+    busy: false,
+};
+
+function stopAudioCutterPlayback() {
+    const player = document.getElementById('cortar-audio-player');
+    if (!player) return;
+    player.pause();
+}
+
+async function openAudioCutter() {
+    if (!FONTES) return;
+    openModal('modal-cortar-audio');
+
+    const select = document.getElementById('cortar-audio-select');
+    const player = document.getElementById('cortar-audio-player');
+    const controls = document.getElementById('cortar-audio-controls');
+    const info = document.getElementById('cortar-audio-info');
+    const audios = FONTES.filter(f => f.tipo === 'audio');
+
+    select.innerHTML = '<option value="">Selecione um audio...</option>';
+    audios.forEach(a => {
+        const sizeMb = formatSizeInMB(a.tamanho_kb || 0);
+        select.innerHTML += '<option value="' + a.id + '" data-caminho="' + a.caminho + '">' + a.nome + ' (' + sizeMb + ' MB)</option>';
+    });
+
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+
+    audioCutterState.duration = 0;
+    controls.classList.add('hidden');
+    info.classList.add('hidden');
+    document.getElementById('cortar-nome').value = '';
+    document.getElementById('cortar-duracao').textContent = '--:--';
+    document.getElementById('cortar-selecao').textContent = '--:--';
+    document.getElementById('start-label').textContent = '0:00';
+    document.getElementById('end-label').textContent = '0:00';
+
+    select.onchange = function() {
+        const id = Number(this.value || 0);
+        if (!id) {
+            controls.classList.add('hidden');
+            info.classList.add('hidden');
+            player.pause();
+            player.removeAttribute('src');
+            player.load();
+            return;
+        }
+
+        const fonte = FONTES.find(f => Number(f.id) === id);
+        if (!fonte) return;
+
+        player.pause();
+        player.src = fonte.caminho;
+        player.load();
+
+        player.onloadedmetadata = function() {
+            audioCutterState.duration = Number.isFinite(player.duration) ? Math.max(player.duration, 0) : 0;
+            const start = document.getElementById('cortar-start');
+            const end = document.getElementById('cortar-end');
+
+            start.min = '0';
+            end.min = '0';
+            start.max = String(audioCutterState.duration);
+            end.max = String(audioCutterState.duration);
+            start.value = '0';
+            end.value = String(audioCutterState.duration);
+
+            controls.classList.remove('hidden');
+            info.classList.remove('hidden');
+            document.getElementById('cortar-duracao').textContent = formatTime(audioCutterState.duration);
+            updateCutterLabels();
+        };
+
+        player.onplay = function() {
+            const startVal = parseFloat(document.getElementById('cortar-start').value || '0');
+            const endVal = parseFloat(document.getElementById('cortar-end').value || '0');
+            if (Number.isFinite(startVal) && Number.isFinite(endVal) && startVal < endVal) {
+                if (player.currentTime < startVal || player.currentTime >= endVal) {
+                    player.currentTime = startVal;
+                }
+            }
+        };
+
+        player.ontimeupdate = function() {
+            const endVal = parseFloat(document.getElementById('cortar-end').value || '0');
+            if (Number.isFinite(endVal) && endVal > 0 && player.currentTime >= endVal) {
+                player.pause();
+            }
+        };
+
+        player.onerror = function() {
+            showToast('Nao foi possivel carregar este audio no player.', 'error');
+            controls.classList.add('hidden');
+            info.classList.add('hidden');
+        };
+    };
+}
+
+function updateCutterLabels(changedInput) {
+    const s = document.getElementById('cortar-start');
+    const e = document.getElementById('cortar-end');
+    let sv = parseFloat(s.value) || 0;
+    let ev = parseFloat(e.value) || 0;
+
+    if (sv > ev) {
+        if (changedInput === 'start') {
+            ev = sv;
+            e.value = String(ev);
+        } else {
+            sv = ev;
+            s.value = String(sv);
+        }
+    }
+
+    const duration = Math.max(audioCutterState.duration || 0, 0);
+    const startPct = duration > 0 ? (sv / duration) * 100 : 0;
+    const endPct = duration > 0 ? (ev / duration) * 100 : 0;
+    const fill = document.getElementById('cortar-range-fill');
+    if (fill) {
+        fill.style.left = startPct + '%';
+        fill.style.width = Math.max(0, endPct - startPct) + '%';
+    }
+
+    document.getElementById('start-label').textContent = formatTime(sv);
+    document.getElementById('end-label').textContent = formatTime(ev);
+    document.getElementById('cortar-selecao').textContent = formatTime(Math.max(0, ev - sv));
+
+    if (changedInput === 'start') {
+        const player = document.getElementById('cortar-audio-player');
+        if (player && Number.isFinite(sv)) {
+            player.currentTime = sv;
+        }
+    }
+
+    const startTip = document.getElementById('cortar-start-tip');
+    const endTip = document.getElementById('cortar-end-tip');
+    if (startTip) {
+        startTip.textContent = formatTime(sv);
+        startTip.style.left = startPct + '%';
+    }
+    if (endTip) {
+        endTip.textContent = formatTime(ev);
+        endTip.style.left = endPct + '%';
+    }
+}
+
+function formatTime(sec) {
+    const total = Math.max(0, Math.floor(Number(sec) || 0));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h > 0) {
+        return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+    return m + ':' + String(s).padStart(2, '0');
+}
+
+function setAudioCutterBusy(isBusy, mode) {
+    audioCutterState.busy = isBusy;
+    const btnExtract = document.getElementById('cortar-btn-extract');
+    const btnRemove = document.getElementById('cortar-btn-remove');
+    const select = document.getElementById('cortar-audio-select');
+    const nameInput = document.getElementById('cortar-nome');
+
+    if (!btnExtract.dataset.originalText) btnExtract.dataset.originalText = btnExtract.innerHTML;
+    if (!btnRemove.dataset.originalText) btnRemove.dataset.originalText = btnRemove.innerHTML;
+
+    btnExtract.disabled = isBusy;
+    btnRemove.disabled = isBusy;
+    select.disabled = isBusy;
+    nameInput.disabled = isBusy;
+
+    if (isBusy) {
+        if (mode === 'extract') {
+            btnExtract.innerHTML = '<i class="bi bi-hourglass-split" style="animation:spin 1s linear infinite"></i> Salvando trecho...';
+        } else {
+            btnRemove.innerHTML = '<i class="bi bi-hourglass-split" style="animation:spin 1s linear infinite"></i> Removendo trecho...';
+        }
+    } else {
+        btnExtract.innerHTML = btnExtract.dataset.originalText;
+        btnRemove.innerHTML = btnRemove.dataset.originalText;
+    }
+}
+
+async function cortarAudio(mode) {
+    if (audioCutterState.busy) return;
+    const action = mode === 'remove' ? 'remove' : 'extract';
+
+    const select = document.getElementById('cortar-audio-select');
+    const fonteId = Number(select.value || 0);
+    if (!fonteId) {
+        showToast('Selecione um audio primeiro.', 'error');
+        return;
+    }
+
+    const startSec = parseFloat(document.getElementById('cortar-start').value || '0');
+    const endSec = parseFloat(document.getElementById('cortar-end').value || '0');
+    if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) {
+        showToast('Selecione um intervalo valido de corte.', 'error');
+        return;
+    }
+
+    if ((endSec - startSec) < 0.1) {
+        showToast('Selecione um trecho maior que 0.1s.', 'error');
+        return;
+    }
+
+    const nameInput = document.getElementById('cortar-nome');
+    const newName = (nameInput.value || '').trim();
+    if (action === 'extract' && newName === '') {
+        showToast('Informe o nome do novo arquivo para salvar o trecho.', 'error');
+        nameInput.focus();
+        return;
+    }
+
+    try {
+        setAudioCutterBusy(true, action);
+
+        const fd = new FormData();
+        fd.append('fonte_id', String(fonteId));
+        fd.append('start_sec', String(startSec));
+        fd.append('end_sec', String(endSec));
+        fd.append('mode', action);
+        if (action === 'extract') fd.append('new_name', newName);
+
+        const data = await api('/api/projeto/' + PROJETO_ID + '/audio/cut', { method: 'POST', body: fd });
+        if (data && data.fonte) {
+            if ((data.mode || action) === 'remove') {
+                updateFonteInList(data.fonte);
+                const option = select.options[select.selectedIndex];
+                if (option) {
+                    option.textContent = data.fonte.nome + ' (' + formatSizeInMB(data.fonte.tamanho_kb || 0) + ' MB)';
+                }
+            } else {
+                addFonteToList(data.fonte);
+            }
+        }
+        nameInput.value = '';
+        showToast(data.message || 'Corte concluido com sucesso!', 'success');
+    } catch (err) {
+        showToast('Erro no corte: ' + err.message, 'error');
+    } finally {
+        setAudioCutterBusy(false, action);
+    }
+}
+
+function reproduzirTrechoSelecionado() {
+    const player = document.getElementById('cortar-audio-player');
+    if (!player || !player.src) {
+        showToast('Selecione um audio primeiro.', 'error');
+        return;
+    }
+
+    const startSec = parseFloat(document.getElementById('cortar-start').value || '0');
+    const endSec = parseFloat(document.getElementById('cortar-end').value || '0');
+    if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) {
+        showToast('Selecione um intervalo valido para reproduzir.', 'error');
+        return;
+    }
+
+    player.currentTime = startSec;
+    player.play().catch(() => {
+        showToast('Nao foi possivel iniciar a reproducao.', 'error');
+    });
 }
 
 // ============================================================
