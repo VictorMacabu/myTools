@@ -216,15 +216,53 @@ class ApiController extends Controller {
     }
 
     public function updateFonte(int $id): void {
+        $fonte = Arquivo::find($id);
+        if (!$fonte) {
+            $this->json(['error' => 'Fonte nao encontrada'], 404);
+            return;
+        }
+
         $data = [];
         if (isset($_POST['nome'])) $data['nome'] = trim($_POST['nome']);
-        if (isset($_POST['transcricao'])) $data['transcricao'] = $_POST['transcricao'];
+        if (isset($_POST['transcricao'])) {
+            $content = (string) $_POST['transcricao'];
+            $ext = strtolower(pathinfo((string) ($fonte['nome'] ?? ''), PATHINFO_EXTENSION));
+            $editableExts = ['txt', 'md', 'csv', 'json', 'srt', 'vtt'];
+            if (!in_array($ext, $editableExts, true)) {
+                $this->json(['error' => 'Este arquivo nao pode ser editado no editor de texto'], 400);
+                return;
+            }
+
+            $root = dirname(__DIR__, 2);
+            $path = str_replace('/', DIRECTORY_SEPARATOR, (string) ($fonte['caminho'] ?? ''));
+            $fullPath = $root . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+            $dir = dirname($fullPath);
+            if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+                $this->json(['error' => 'Nao foi possivel preparar o diretorio do arquivo'], 500);
+                return;
+            }
+
+            $bytesWritten = @file_put_contents($fullPath, $content, LOCK_EX);
+            if ($bytesWritten === false) {
+                $this->json(['error' => 'Falha ao salvar o arquivo no servidor'], 500);
+                return;
+            }
+
+            $data['transcricao'] = $content;
+            $data['tamanho_kb'] = (int) round(strlen($content) / 1024);
+        }
+
         if (empty($data)) {
             $this->json(['error' => 'Nenhum dado enviado'], 400);
             return;
         }
+
         Arquivo::update($id, $data);
-        $this->json(['ok' => true]);
+        $this->json([
+            'ok' => true,
+            'id' => $id,
+            'tamanho_kb' => $data['tamanho_kb'] ?? (int) ($fonte['tamanho_kb'] ?? 0),
+        ]);
     }
 
     // --- Chat com LLM (LM Studio) ---

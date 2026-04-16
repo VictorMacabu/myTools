@@ -983,7 +983,7 @@ function getFileExtFromName(name) {
 }
 
 function isEditableTextFonte(fonte) {
-    if (!fonte || !['documento', 'transcricao'].includes(fonte.tipo)) return false;
+    if (!fonte) return false;
     const ext = getFileExtFromName(fonte.nome || '');
     return EDITABLE_TEXT_EXTENSIONS.includes(ext);
 }
