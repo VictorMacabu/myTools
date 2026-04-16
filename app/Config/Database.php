@@ -24,6 +24,7 @@ class Database {
                 PDO::ATTR_EMULATE_PREPARES    => false,
             ]);
             $this->pdo->exec('PRAGMA foreign_keys = ON');
+            $this->pdo->exec('PRAGMA busy_timeout = 5000');
             $this->logOperation('CONECTAR', 'BANCO_DE_DADOS', 'Conectado ao banco de dados: ' . $this->dbPath);
             $this->initSchema();
         } catch (PDOException $e) {
@@ -104,6 +105,38 @@ class Database {
 
             "CREATE INDEX IF NOT EXISTS idx_arquivos_projeto ON arquivos(projeto_id)",
             "CREATE INDEX IF NOT EXISTS idx_arquivos_tipo ON arquivos(tipo)",
+
+            "CREATE TABLE IF NOT EXISTS transcription_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                projeto_id INTEGER NOT NULL,
+                fonte_id INTEGER NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'queued',
+                stage VARCHAR(30) NOT NULL DEFAULT 'queued',
+                status_message TEXT,
+                error_message TEXT,
+                cancel_requested INTEGER NOT NULL DEFAULT 0,
+                worker_pid INTEGER,
+                source_nome VARCHAR(255),
+                source_caminho VARCHAR(500),
+                txt_arquivo_id INTEGER,
+                md_arquivo_id INTEGER,
+                txt_nome VARCHAR(255),
+                md_nome VARCHAR(255),
+                attempts INTEGER NOT NULL DEFAULT 0,
+                criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+                iniciado_em DATETIME,
+                finalizado_em DATETIME,
+                cancelado_em DATETIME,
+                atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
+                FOREIGN KEY (fonte_id) REFERENCES arquivos(id) ON DELETE CASCADE,
+                FOREIGN KEY (txt_arquivo_id) REFERENCES arquivos(id) ON DELETE SET NULL,
+                FOREIGN KEY (md_arquivo_id) REFERENCES arquivos(id) ON DELETE SET NULL
+            )",
+
+            "CREATE INDEX IF NOT EXISTS idx_transcription_jobs_project ON transcription_jobs(projeto_id)",
+            "CREATE INDEX IF NOT EXISTS idx_transcription_jobs_source ON transcription_jobs(fonte_id)",
+            "CREATE INDEX IF NOT EXISTS idx_transcription_jobs_status ON transcription_jobs(status)",
         ];
 
         foreach ($sql as $s) {

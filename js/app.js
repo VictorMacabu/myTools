@@ -1074,7 +1074,7 @@ function formatStopwatch(totalSeconds) {
     return [hours, minutes, seconds].map(v => String(v).padStart(2, '0')).join(':');
 }
 
-function resetTranscricaoModal() {
+function resetTranscricaoModalLEGACY() {
     const modalContent = document.querySelector('#modal-transcrever .modal-box');
     if (!modalContent) return;
 
@@ -1098,7 +1098,7 @@ function resetTranscricaoModal() {
     }
 }
 
-async function openTranscricao() {
+async function openTranscricaoLEGACY2() {
     if (!FONTES) return;
     openModal('modal-transcrever');
     resetTranscricaoModal();
@@ -1111,7 +1111,7 @@ async function openTranscricao() {
     });
 }
 
-async function transcreverAudio(triggerEvent) {
+async function transcreverAudioLEGACY2(triggerEvent) {
     const select = document.getElementById('transcrever-select');
     if (!select.value) { showToast('Selecione um audio para transcrever', 'error'); return; }
 
@@ -1223,6 +1223,378 @@ async function transcreverAudio(triggerEvent) {
         clearInterval(counterInterval);
         showToast('Erro ao transcrever: ' + err.message, 'error');
         resetTranscricaoModal();
+    }
+}
+
+// Background transcription state
+let activeTranscriptionJobId = null;
+let activeTranscriptionSourceName = '';
+let transcriptionPollTimer = null;
+let transcriptionStopwatchTimer = null;
+let transcriptionElapsedSeconds = 0;
+const transcriptionAddedFileIds = new Set();
+
+function stopTranscriptionTimers() {
+    if (transcriptionPollTimer) {
+        clearInterval(transcriptionPollTimer);
+        transcriptionPollTimer = null;
+    }
+    if (transcriptionStopwatchTimer) {
+        clearInterval(transcriptionStopwatchTimer);
+        transcriptionStopwatchTimer = null;
+    }
+}
+
+function getTranscricaoElements() {
+    const modalContent = document.querySelector('#modal-transcrever .modal-box');
+    if (!modalContent) return null;
+
+    return {
+        modalContent,
+        para: modalContent.querySelector('p'),
+        selectEl: document.getElementById('transcrever-select'),
+        fileNameEl: document.getElementById('transcrever-arquivo-atual'),
+        statusWrap: document.getElementById('transcrever-status'),
+        statusMsg: document.getElementById('transcrever-status-msg'),
+        animContainer: document.getElementById('transcription-anim-container'),
+        btn: document.getElementById('transcrever-btn'),
+        cancelBtn: document.getElementById('transcrever-cancel-btn')
+    };
+}
+
+function ensureTranscriptionAnimation() {
+    const els = getTranscricaoElements();
+    if (!els) return null;
+    if (els.animContainer) return els.animContainer;
+
+    const animContainer = document.createElement('div');
+    animContainer.id = 'transcription-anim-container';
+    animContainer.className = 'transcription-anim-container';
+
+    const pingPongArena = document.createElement('div');
+    pingPongArena.className = 'transcription-pingpong-arena';
+
+    const leftPaddle = document.createElement('div');
+    leftPaddle.className = 'transcription-paddle left';
+    const rightPaddle = document.createElement('div');
+    rightPaddle.className = 'transcription-paddle right';
+    const ball = document.createElement('div');
+    ball.className = 'transcription-ball';
+
+    pingPongArena.appendChild(leftPaddle);
+    pingPongArena.appendChild(rightPaddle);
+    pingPongArena.appendChild(ball);
+
+    const counter = document.createElement('div');
+    counter.id = 'transcription-counter';
+    counter.className = 'transcription-counter';
+    counter.innerHTML = '<span class="transcription-counter-time">00:00:00</span>';
+
+    animContainer.appendChild(pingPongArena);
+    animContainer.appendChild(counter);
+    els.modalContent.insertBefore(animContainer, els.btn);
+    return animContainer;
+}
+
+function setTranscricaoStatus(message, mode = 'info') {
+    const els = getTranscricaoElements();
+    if (!els || !els.statusWrap || !els.statusMsg) return;
+
+    els.statusWrap.classList.remove('hidden');
+    els.statusMsg.textContent = message || '';
+
+    if (mode === 'error') {
+        els.statusWrap.style.borderColor = 'var(--color-error, rgba(239, 68, 68, 0.35))';
+        els.statusWrap.style.background = 'var(--color-error, rgba(239, 68, 68, 0.08))';
+    } else if (mode === 'success') {
+        els.statusWrap.style.borderColor = 'var(--color-success, rgba(34, 197, 94, 0.35))';
+        els.statusWrap.style.background = 'var(--color-success, rgba(34, 197, 94, 0.08))';
+    } else {
+        els.statusWrap.style.borderColor = 'var(--border)';
+        els.statusWrap.style.background = 'var(--surface-2)';
+    }
+}
+
+function setTranscricaoProcessingUI(audioName) {
+    const els = getTranscricaoElements();
+    if (!els) return;
+
+    ensureTranscriptionAnimation();
+    if (els.para) els.para.style.display = 'none';
+    if (els.selectEl) els.selectEl.style.display = 'none';
+
+    if (els.fileNameEl) {
+        els.fileNameEl.textContent = audioName || 'Arquivo em transcricao';
+        els.fileNameEl.title = audioName || '';
+        els.fileNameEl.classList.remove('hidden');
+    }
+
+    if (els.btn) {
+        if (!els.btn.dataset.originalText) els.btn.dataset.originalText = els.btn.innerHTML;
+        els.btn.disabled = true;
+        els.btn.style.display = 'none';
+    }
+
+    if (els.cancelBtn) {
+        els.cancelBtn.classList.remove('hidden');
+        els.cancelBtn.disabled = false;
+    }
+}
+
+function resetTranscricaoModal() {
+    const els = getTranscricaoElements();
+    if (!els) return;
+
+    stopTranscriptionTimers();
+    activeTranscriptionJobId = null;
+    activeTranscriptionSourceName = '';
+    transcriptionElapsedSeconds = 0;
+
+    if (els.para) els.para.style.display = 'block';
+    if (els.selectEl) els.selectEl.style.display = 'block';
+    if (els.animContainer) els.animContainer.remove();
+
+    if (els.fileNameEl) {
+        els.fileNameEl.textContent = '';
+        els.fileNameEl.removeAttribute('title');
+        els.fileNameEl.classList.add('hidden');
+    }
+
+    if (els.statusWrap) {
+        els.statusWrap.classList.add('hidden');
+    }
+    if (els.statusMsg) {
+        els.statusMsg.textContent = '';
+    }
+
+    if (els.btn) {
+        els.btn.disabled = false;
+        els.btn.style.display = 'block';
+        if (els.btn.dataset.originalText) els.btn.innerHTML = els.btn.dataset.originalText;
+    }
+    if (els.cancelBtn) {
+        els.cancelBtn.classList.add('hidden');
+        els.cancelBtn.disabled = false;
+    }
+}
+
+function startTranscriptionStopwatch(initialSeconds = 0) {
+    transcriptionElapsedSeconds = Math.max(0, Number(initialSeconds) || 0);
+    const ref = document.querySelector('#transcription-counter .transcription-counter-time');
+    if (ref) ref.textContent = formatStopwatch(transcriptionElapsedSeconds);
+
+    if (transcriptionStopwatchTimer) clearInterval(transcriptionStopwatchTimer);
+    transcriptionStopwatchTimer = setInterval(() => {
+        transcriptionElapsedSeconds += 1;
+        const timeEl = document.querySelector('#transcription-counter .transcription-counter-time');
+        if (timeEl) timeEl.textContent = formatStopwatch(transcriptionElapsedSeconds);
+    }, 1000);
+}
+
+function transcricaoStatusTexto(job) {
+    const stage = job.stage || '';
+    const base = job.status_message || '';
+
+    if (stage === 'queued') return base || 'Transcricao enfileirada.';
+    if (stage === 'starting') return base || 'Preparando transcricao...';
+    if (stage === 'transcribing') return base || 'Transcrevendo audio...';
+    if (stage === 'finalizing') return base || 'Finalizando texto transcrito...';
+    if (stage === 'saving') return base || 'Salvando resultado no projeto...';
+    if (stage === 'cancelling') return base || 'Cancelamento solicitado...';
+    if (stage === 'completed') return base || 'Transcricao concluida.';
+    if (stage === 'cancelled') return base || 'Transcricao cancelada.';
+    if (stage === 'failed') return job.error_message || base || 'Transcricao finalizada com erro.';
+    return base || 'Processando transcricao...';
+}
+
+function addFonteResultIfNeeded(fileData) {
+    if (!fileData || !fileData.id) return;
+    if (transcriptionAddedFileIds.has(fileData.id)) return;
+    transcriptionAddedFileIds.add(fileData.id);
+    addFonteToList(fileData);
+}
+
+function finalizeTranscricaoState() {
+    stopTranscriptionTimers();
+    activeTranscriptionJobId = null;
+    activeTranscriptionSourceName = '';
+
+    const els = getTranscricaoElements();
+    if (!els) return;
+    if (els.cancelBtn) {
+        els.cancelBtn.classList.add('hidden');
+        els.cancelBtn.disabled = false;
+    }
+    if (els.btn) {
+        els.btn.disabled = false;
+        els.btn.style.display = 'block';
+        if (els.btn.dataset.originalText) els.btn.innerHTML = els.btn.dataset.originalText;
+    }
+    if (els.para) els.para.style.display = 'block';
+    if (els.selectEl) els.selectEl.style.display = 'block';
+    if (els.animContainer) els.animContainer.remove();
+}
+
+async function consultarStatusTranscricao(jobId) {
+    try {
+        const res = await fetch('/api/projeto/' + PROJETO_ID + '/transcribe/' + jobId + '/status');
+        const data = await res.json();
+        if (!res.ok || !data.success || !data.job) {
+            throw new Error(data.error || 'Falha ao consultar status');
+        }
+
+        const job = data.job;
+        activeTranscriptionJobId = job.id;
+        if (job.source_nome) activeTranscriptionSourceName = job.source_nome;
+        if (job.source_nome) setTranscricaoProcessingUI(job.source_nome);
+
+        if (typeof job.elapsed_seconds === 'number' && job.elapsed_seconds > transcriptionElapsedSeconds) {
+            transcriptionElapsedSeconds = job.elapsed_seconds;
+            const ref = document.querySelector('#transcription-counter .transcription-counter-time');
+            if (ref) ref.textContent = formatStopwatch(job.elapsed_seconds);
+        }
+
+        if (job.status === 'failed') {
+            setTranscricaoStatus(transcricaoStatusTexto(job), 'error');
+        } else if (job.status === 'completed') {
+            setTranscricaoStatus(transcricaoStatusTexto(job), 'success');
+        } else {
+            setTranscricaoStatus(transcricaoStatusTexto(job), 'info');
+        }
+
+        if (job.status === 'completed') {
+            addFonteResultIfNeeded(data.txt);
+            addFonteResultIfNeeded(data.md);
+            finalizeTranscricaoState();
+            showToast('Transcricao concluida em ' + formatStopwatch(transcriptionElapsedSeconds) + '.', 'success');
+            return;
+        }
+
+        if (job.status === 'failed') {
+            finalizeTranscricaoState();
+            showToast('Transcricao falhou: ' + (job.error_message || 'erro desconhecido'), 'error');
+            return;
+        }
+
+        if (job.status === 'cancelled') {
+            finalizeTranscricaoState();
+            showToast('Transcricao cancelada.', 'info');
+            return;
+        }
+    } catch (err) {
+        setTranscricaoStatus('Erro ao consultar status: ' + err.message, 'error');
+    }
+}
+
+function startTranscricaoPolling(jobId) {
+    if (transcriptionPollTimer) clearInterval(transcriptionPollTimer);
+    transcriptionPollTimer = setInterval(() => {
+        consultarStatusTranscricao(jobId);
+    }, 2000);
+}
+
+async function openTranscricao() {
+    if (!FONTES) return;
+    openModal('modal-transcrever');
+
+    const select = document.getElementById('transcrever-select');
+    const audios = FONTES.filter(f => f.tipo === 'audio' || f.tipo === 'video');
+    select.innerHTML = '<option value="">Selecionar &aacute;udio...</option>';
+    audios.forEach(a => {
+        select.innerHTML += '<option value="' + a.id + '">' + a.nome + '</option>';
+    });
+
+    if (activeTranscriptionJobId) {
+        setTranscricaoProcessingUI(activeTranscriptionSourceName || 'Transcricao em andamento');
+        setTranscricaoStatus('Reconectando ao status da transcricao...', 'info');
+        startTranscriptionStopwatch(transcriptionElapsedSeconds);
+        consultarStatusTranscricao(activeTranscriptionJobId);
+        startTranscricaoPolling(activeTranscriptionJobId);
+        return;
+    }
+
+    resetTranscricaoModal();
+}
+
+async function transcreverAudio(triggerEvent) {
+    const select = document.getElementById('transcrever-select');
+    if (!select || !select.value) {
+        showToast('Selecione um audio para transcrever', 'error');
+        return;
+    }
+
+    const fontId = select.value;
+    const option = select.options[select.selectedIndex];
+    const audioName = option ? option.textContent : 'Arquivo';
+
+    const btn = triggerEvent?.currentTarget || document.getElementById('transcrever-btn');
+    if (btn && !btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+
+    setTranscricaoProcessingUI(audioName);
+    setTranscricaoStatus('Enfileirando transcricao...', 'info');
+    startTranscriptionStopwatch(0);
+
+    try {
+        const fd = new FormData();
+        fd.append('fonte_id', fontId);
+
+        const res = await fetch('/api/projeto/' + PROJETO_ID + '/transcribe', {
+            method: 'POST',
+            body: fd
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            if (res.status === 409 && data.job) {
+                activeTranscriptionJobId = data.job.id;
+                activeTranscriptionSourceName = data.job.source_nome || audioName;
+                setTranscricaoStatus(transcricaoStatusTexto(data.job), 'info');
+                consultarStatusTranscricao(activeTranscriptionJobId);
+                startTranscricaoPolling(activeTranscriptionJobId);
+                return;
+            }
+            throw new Error(data.error || 'Nao foi possivel iniciar a transcricao');
+        }
+        if (!data.job) {
+            throw new Error('Resposta invalida ao iniciar transcricao');
+        }
+
+        activeTranscriptionJobId = data.job.id;
+        activeTranscriptionSourceName = data.job.source_nome || audioName;
+        setTranscricaoStatus(transcricaoStatusTexto(data.job), 'info');
+
+        consultarStatusTranscricao(activeTranscriptionJobId);
+        startTranscricaoPolling(activeTranscriptionJobId);
+    } catch (err) {
+        finalizeTranscricaoState();
+        setTranscricaoStatus('Falha ao iniciar transcricao: ' + err.message, 'error');
+        showToast('Erro ao iniciar transcricao: ' + err.message, 'error');
+    }
+}
+
+async function cancelarTranscricao() {
+    if (!activeTranscriptionJobId) {
+        showToast('Nenhuma transcricao em andamento para cancelar.', 'info');
+        return;
+    }
+
+    const els = getTranscricaoElements();
+    if (els && els.cancelBtn) els.cancelBtn.disabled = true;
+    setTranscricaoStatus('Solicitando cancelamento...', 'info');
+
+    try {
+        const res = await fetch('/api/projeto/' + PROJETO_ID + '/transcribe/' + activeTranscriptionJobId + '/cancel', {
+            method: 'POST'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao cancelar');
+
+        setTranscricaoStatus((data.job && transcricaoStatusTexto(data.job)) || 'Cancelamento solicitado.', 'info');
+        if (els && els.cancelBtn) els.cancelBtn.disabled = false;
+    } catch (err) {
+        if (els && els.cancelBtn) els.cancelBtn.disabled = false;
+        setTranscricaoStatus('Erro ao cancelar: ' + err.message, 'error');
+        showToast('Erro ao cancelar transcricao: ' + err.message, 'error');
     }
 }
 
