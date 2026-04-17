@@ -873,6 +873,7 @@ async function sendChatMessage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                projeto_id: PROJETO_ID,
                 message: msg,
                 fontes: Array.from(selectedFontes),
                 history: chatHistory,
