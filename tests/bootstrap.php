@@ -115,6 +115,18 @@ class TestDatabase {
             "CREATE INDEX IF NOT EXISTS idx_tarefas_project_status ON tarefas(project_id, status, deleted_at)",
             "CREATE INDEX IF NOT EXISTS idx_tarefas_project_priority_due ON tarefas(project_id, priority, due_date, deleted_at)",
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_tarefas_project_title_active ON tarefas(project_id, LOWER(title)) WHERE deleted_at IS NULL",
+            "CREATE TABLE IF NOT EXISTS fluxos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(255) NOT NULL,
+                project_id INTEGER NOT NULL,
+                nodes TEXT NOT NULL DEFAULT '[]',
+                edges TEXT NOT NULL DEFAULT '[]',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projetos(id) ON DELETE CASCADE
+            )",
+            "CREATE INDEX IF NOT EXISTS idx_fluxos_project ON fluxos(project_id)",
+            "CREATE INDEX IF NOT EXISTS idx_fluxos_project_updated ON fluxos(project_id, updated_at)",
         ];
 
         foreach ($sql as $s) {
@@ -123,7 +135,7 @@ class TestDatabase {
     }
 
     public function reset() {
-        $tables = ['tarefas', 'arquivos', 'projetos', 'grupos', 'workspaces'];
+        $tables = ['fluxos', 'tarefas', 'arquivos', 'projetos', 'grupos', 'workspaces'];
         foreach ($tables as $table) {
             $this->pdo->exec("DELETE FROM $table");
         }

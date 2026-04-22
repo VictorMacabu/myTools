@@ -87,6 +87,8 @@ function setProjectTab(tabName, persist = true) {
 
     if (tabName === 'tarefas') {
         loadTasks(false);
+    } else if (tabName === 'fluxos' && typeof window.loadFlowWorkspace === 'function') {
+        window.loadFlowWorkspace(false);
     }
 }
 

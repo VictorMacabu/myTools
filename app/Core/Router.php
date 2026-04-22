@@ -45,6 +45,16 @@ class Router {
                 $this->dispatch([\App\Controllers\ProjetoController::class, 'transcribeStatus'], (int) $m[1], (int) $m[2]);
                 return;
             }
+            // GET /api/projeto/{id}/fluxos
+            if (preg_match('#^/api/projeto/(\d+)/fluxos$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\FluxoController::class, 'index'], (int) $m[1]);
+                return;
+            }
+            // GET /api/projeto/{id}/fluxos/{flowId}
+            if (preg_match('#^/api/projeto/(\d+)/fluxos/(\d+)$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\FluxoController::class, 'show'], (int) $m[1], (int) $m[2]);
+                return;
+            }
             // GET /api/fontes/{id}/download
             if (preg_match('#^/api/fontes/(\d+)/download$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ApiController::class, 'downloadFonte'], (int) $m[1]);
@@ -76,6 +86,26 @@ class Router {
             // POST /api/projeto/{id}/transcribe/{jobId}/cancel
             if (preg_match('#^/api/projeto/(\d+)/transcribe/(\d+)/cancel$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ProjetoController::class, 'cancelTranscription'], (int) $m[1], (int) $m[2]);
+                return;
+            }
+            // POST /api/projeto/{id}/fluxos
+            if (preg_match('#^/api/projeto/(\d+)/fluxos$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\FluxoController::class, 'store'], (int) $m[1]);
+                return;
+            }
+            // POST /api/projeto/{id}/fluxos/generate
+            if (preg_match('#^/api/projeto/(\d+)/fluxos/generate$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\FluxoController::class, 'generate'], (int) $m[1]);
+                return;
+            }
+            // POST /api/projeto/{id}/fluxos/{flowId}
+            if (preg_match('#^/api/projeto/(\d+)/fluxos/(\d+)$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\FluxoController::class, 'update'], (int) $m[1], (int) $m[2]);
+                return;
+            }
+            // POST /api/projeto/{id}/fluxos/{flowId}/delete
+            if (preg_match('#^/api/projeto/(\d+)/fluxos/(\d+)/delete$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\FluxoController::class, 'delete'], (int) $m[1], (int) $m[2]);
                 return;
             }
             // POST /api/projeto/{id}/tarefas

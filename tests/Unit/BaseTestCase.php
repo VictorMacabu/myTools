@@ -88,4 +88,34 @@ abstract class BaseTestCase extends TestCase {
         $stmt->execute([$title, $description, $status, $priority, $dueDate, $projetoId]);
         return (int) $this->db->lastInsertId();
     }
+
+    /**
+     * Auxiliador: criar um fluxo para teste
+     */
+    protected function createFluxo(
+        int $projetoId,
+        string $name = 'Fluxo de teste',
+        ?array $nodes = null,
+        ?array $edges = null
+    ): int {
+        $nodes ??= [
+            ['id' => 'start_1', 'label' => 'Inicio', 'type' => 'start', 'x' => 100, 'y' => 120],
+            ['id' => 'end_1', 'label' => 'Fim', 'type' => 'end', 'x' => 360, 'y' => 120],
+        ];
+        $edges ??= [
+            ['id' => 'edge_1', 'from' => 'start_1', 'to' => 'end_1'],
+        ];
+
+        $stmt = $this->db->prepare(
+            "INSERT INTO fluxos (name, project_id, nodes, edges, created_at, updated_at)
+             VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))"
+        );
+        $stmt->execute([
+            $name,
+            $projetoId,
+            json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            json_encode($edges, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
 }
