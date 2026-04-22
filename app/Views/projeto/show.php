@@ -9,6 +9,17 @@
         <span class="topbar-ws-chip"><?= htmlspecialchars($projeto['workspace_icone']) ?> <?= htmlspecialchars($projeto['workspace_nome']) ?></span>
     </div>
 
+    <div class="proj-tabs" role="tablist" aria-label="Abas do projeto">
+        <button type="button" id="tab-btn-tarefas" class="proj-tab-btn active" role="tab" aria-selected="true" onclick="setProjectTab('tarefas')">Tarefas</button>
+        <button type="button" id="tab-btn-chat" class="proj-tab-btn" role="tab" aria-selected="false" onclick="setProjectTab('chat')">Chat &amp; Fontes</button>
+        <button type="button" id="tab-btn-fluxos" class="proj-tab-btn" role="tab" aria-selected="false" onclick="setProjectTab('fluxos')">Fluxos</button>
+    </div>
+
+    <section id="project-tab-tarefas" class="project-tab-panel project-tab-panel--tasks">
+        <?php include __DIR__ . '/partials/_tarefas.php'; ?>
+    </section>
+
+    <section id="project-tab-chat" class="project-tab-panel project-tab-panel--chat" hidden>
     <!-- Tripartite layout -->
     <div class="proj-body-wrap">
         <!-- LEFT: Fontes -->
@@ -111,7 +122,14 @@
             </div>
         </div>
     </div>
+    </section>
+
+    <section id="project-tab-fluxos" class="project-tab-panel project-tab-panel--flows" hidden>
+        <?php include __DIR__ . '/partials/_fluxos.php'; ?>
+    </section>
 </div>
+
+<?php include __DIR__ . '/partials/_tarefas_modal.php'; ?>
 
 <!-- Modal: Adicionar Fonte -->
 <div class="modal-overlay hidden" id="modal-add-fonte">

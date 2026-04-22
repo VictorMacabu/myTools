@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/css/reset.css">
     <link rel="stylesheet" href="/css/style.css">
     <script src="/js/app.js" defer></script>
+    <script src="/js/project-tabs.js" defer></script>
 </head>
 <body>
 

@@ -50,6 +50,11 @@ class Router {
                 $this->dispatch([\App\Controllers\ApiController::class, 'downloadFonte'], (int) $m[1]);
                 return;
             }
+            // GET /api/projeto/{id}/tarefas
+            if (preg_match('#^/api/projeto/(\d+)/tarefas$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\TarefaController::class, 'index'], (int) $m[1]);
+                return;
+            }
         }
 
         if ($method === 'POST' && !$isDelete) {
@@ -71,6 +76,26 @@ class Router {
             // POST /api/projeto/{id}/transcribe/{jobId}/cancel
             if (preg_match('#^/api/projeto/(\d+)/transcribe/(\d+)/cancel$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ProjetoController::class, 'cancelTranscription'], (int) $m[1], (int) $m[2]);
+                return;
+            }
+            // POST /api/projeto/{id}/tarefas
+            if (preg_match('#^/api/projeto/(\d+)/tarefas$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\TarefaController::class, 'store'], (int) $m[1]);
+                return;
+            }
+            // POST /api/projeto/{id}/tarefas/{taskId}
+            if (preg_match('#^/api/projeto/(\d+)/tarefas/(\d+)$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\TarefaController::class, 'update'], (int) $m[1], (int) $m[2]);
+                return;
+            }
+            // POST /api/projeto/{id}/tarefas/{taskId}/start
+            if (preg_match('#^/api/projeto/(\d+)/tarefas/(\d+)/start$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\TarefaController::class, 'start'], (int) $m[1], (int) $m[2]);
+                return;
+            }
+            // POST /api/projeto/{id}/tarefas/{taskId}/complete
+            if (preg_match('#^/api/projeto/(\d+)/tarefas/(\d+)/complete$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\TarefaController::class, 'complete'], (int) $m[1], (int) $m[2]);
                 return;
             }
         }
@@ -119,6 +144,16 @@ class Router {
             // POST /api/grupo/{id}/update
             if (preg_match('#^/api/grupo/(\d+)/update$#', $path, $m)) {
                 $this->dispatch([\App\Controllers\ApiController::class, 'updateGrupo'], (int) $m[1]);
+                return;
+            }
+            // DELETE /api/projeto/{id}/tarefas/{taskId}
+            if (preg_match('#^/api/projeto/(\d+)/tarefas/(\d+)$#', $path, $m) && $isDelete) {
+                $this->dispatch([\App\Controllers\TarefaController::class, 'delete'], (int) $m[1], (int) $m[2]);
+                return;
+            }
+            // POST /api/projeto/{id}/tarefas/{taskId}/delete
+            if (preg_match('#^/api/projeto/(\d+)/tarefas/(\d+)/delete$#', $path, $m)) {
+                $this->dispatch([\App\Controllers\TarefaController::class, 'delete'], (int) $m[1], (int) $m[2]);
                 return;
             }
         }

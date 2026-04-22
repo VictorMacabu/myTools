@@ -9,6 +9,9 @@ abstract class Model {
     protected static array $fillable = [];
 
     protected static function db(): PDO {
+        if (defined('TESTING') && class_exists('\\TestDatabase')) {
+            return \TestDatabase::getInstance()->getConnection();
+        }
         return Database::getInstance()->getConnection();
     }
 

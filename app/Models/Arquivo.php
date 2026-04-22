@@ -8,6 +8,15 @@ class Arquivo extends Model {
     protected static string $table = 'arquivos';
     protected static array $fillable = ['nome', 'caminho', 'tipo', 'transcricao', 'tamanho_kb', 'projeto_id'];
 
+    public static function update(int $id, array $data): bool {
+        unset($data['tipo']);
+        if (empty($data)) {
+            return true;
+        }
+
+        return parent::update($id, $data);
+    }
+
     public static function projectArquivos(int $projetoId): array {
         $stmt = self::db()->prepare(
             "SELECT * FROM arquivos WHERE projeto_id = ? ORDER BY criado_em ASC"

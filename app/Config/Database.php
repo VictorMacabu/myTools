@@ -137,6 +137,27 @@ class Database {
             "CREATE INDEX IF NOT EXISTS idx_transcription_jobs_project ON transcription_jobs(projeto_id)",
             "CREATE INDEX IF NOT EXISTS idx_transcription_jobs_source ON transcription_jobs(fonte_id)",
             "CREATE INDEX IF NOT EXISTS idx_transcription_jobs_status ON transcription_jobs(status)",
+
+            "CREATE TABLE IF NOT EXISTS tarefas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                status VARCHAR(20) NOT NULL DEFAULT 'CREATED',
+                priority VARCHAR(2) NOT NULL DEFAULT 'P3',
+                due_date DATE,
+                project_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                deleted_at DATETIME,
+                CHECK (LENGTH(TRIM(title)) > 0),
+                CHECK (status IN ('CREATED', 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'OVERDUE')),
+                CHECK (priority IN ('P1', 'P2', 'P3', 'P4')),
+                FOREIGN KEY (project_id) REFERENCES projetos(id) ON DELETE CASCADE
+            )",
+
+            "CREATE INDEX IF NOT EXISTS idx_tarefas_project ON tarefas(project_id)",
+            "CREATE INDEX IF NOT EXISTS idx_tarefas_project_status ON tarefas(project_id, status, deleted_at)",
+            "CREATE INDEX IF NOT EXISTS idx_tarefas_project_priority_due ON tarefas(project_id, priority, due_date, deleted_at)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_tarefas_project_title_active ON tarefas(project_id, LOWER(title)) WHERE deleted_at IS NULL",
         ];
 
         foreach ($sql as $s) {

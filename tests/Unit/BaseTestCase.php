@@ -69,4 +69,23 @@ abstract class BaseTestCase extends TestCase {
         $stmt->execute([$projetoId, $nome, '/uploads/' . $nome, $tipo]);
         return (int) $this->db->lastInsertId();
     }
+
+    /**
+     * Auxiliador: criar uma tarefa para teste
+     */
+    protected function createTarefa(
+        int $projetoId,
+        string $title = 'Tarefa de teste',
+        string $status = 'CREATED',
+        string $priority = 'P3',
+        ?string $dueDate = null,
+        string $description = 'Descricao de teste'
+    ): int {
+        $stmt = $this->db->prepare(
+            "INSERT INTO tarefas (title, description, status, priority, due_date, project_id, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, datetime('now'))"
+        );
+        $stmt->execute([$title, $description, $status, $priority, $dueDate, $projetoId]);
+        return (int) $this->db->lastInsertId();
+    }
 }
