@@ -32,6 +32,8 @@ const FLOW_DEFAULT_COLORS = {
 const flowState = {
     projectId: typeof PROJETO_ID !== 'undefined' ? Number(PROJETO_ID) : 0,
     flows: [],
+    openFlows: [],
+    activeFlowTabId: null,
     currentFlowId: null,
     currentFlow: null,
     nodes: [],
@@ -105,6 +107,212 @@ function bindFlowUiEvents() {
     }
 }
 
+function makeFlowTabId(flowId = null) {
+    return flowId ? `flow:${flowId}` : `draft:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function cloneFlowGraph(flow) {
+    return JSON.parse(JSON.stringify(flow ?? null));
+}
+
+function createOpenFlowTab(graph, meta = {}) {
+    const copy = cloneFlowGraph(graph);
+    const flowId = meta.flowId ?? (copy && copy.id ? Number(copy.id) : null);
+    const tab = {
+        tabId: meta.tabId || makeFlowTabId(flowId),
+        flowId,
+        name: meta.name ?? copy?.name ?? 'Fluxo sem titulo',
+        project_id: meta.project_id ?? copy?.project_id ?? flowState.projectId,
+        nodes: Array.isArray(copy?.nodes) ? cloneFlowGraph(copy.nodes) : [],
+        edges: Array.isArray(copy?.edges) ? cloneFlowGraph(copy.edges) : [],
+        created_at: meta.created_at ?? copy?.created_at ?? null,
+        updated_at: meta.updated_at ?? copy?.updated_at ?? null,
+        dirty: Boolean(meta.dirty),
+        isNew: Boolean(meta.isNew ?? !flowId),
+    };
+    return tab;
+}
+
+function getActiveFlowTab() {
+    return flowState.openFlows.find(tab => tab.tabId === flowState.activeFlowTabId) || null;
+}
+
+function syncActiveTabAliases() {
+    const active = getActiveFlowTab();
+    if (!active) {
+        flowState.currentFlow = null;
+        flowState.currentFlowId = null;
+        flowState.nodes = [];
+        flowState.edges = [];
+        return;
+    }
+
+    flowState.currentFlow = active;
+    flowState.currentFlowId = active.flowId || null;
+    flowState.nodes = active.nodes;
+    flowState.edges = active.edges;
+    flowState.dirty = Boolean(active.dirty);
+}
+
+function activateFlowTab(tabId, preserveDirty = false) {
+    const tab = flowState.openFlows.find(item => item.tabId === tabId);
+    if (!tab) {
+        return false;
+    }
+
+    if (flowState.activeFlowTabId === tabId) {
+        syncActiveTabAliases();
+        renderFlowTabs();
+        syncFlowName();
+        syncFlowInspector();
+        scheduleFlowRender();
+        return true;
+    }
+
+    if (!preserveDirty && flowState.currentFlow) {
+        flowState.currentFlow.dirty = flowState.dirty;
+    }
+
+    flowState.activeFlowTabId = tabId;
+    syncActiveTabAliases();
+    markFlowDirty(tab.dirty);
+    renderFlowTabs();
+    syncFlowName();
+    syncFlowInspector();
+    scheduleFlowRender();
+    return true;
+}
+
+function ensureFallbackOpenTab() {
+    if (flowState.openFlows.length > 0) {
+        return;
+    }
+
+    const starter = createStarterGraph('Novo fluxo');
+    const tab = createOpenFlowTab({
+        name: starter.name,
+        project_id: flowState.projectId,
+        nodes: starter.nodes,
+        edges: starter.edges,
+    }, { isNew: true, dirty: false });
+    flowState.openFlows.push(tab);
+    flowState.activeFlowTabId = tab.tabId;
+    syncActiveTabAliases();
+}
+
+function findOpenFlowTabByFlowId(flowId) {
+    return flowState.openFlows.find(tab => tab.flowId && Number(tab.flowId) === Number(flowId)) || null;
+}
+
+function findOpenFlowTabById(tabId) {
+    return flowState.openFlows.find(tab => tab.tabId === tabId) || null;
+}
+
+function createBlankFlowTab() {
+    const starter = createStarterGraph('Novo fluxo');
+    const tab = createOpenFlowTab({
+        name: starter.name,
+        project_id: flowState.projectId,
+        nodes: starter.nodes,
+        edges: starter.edges,
+    }, {
+        isNew: true,
+        dirty: true,
+    });
+
+    flowState.openFlows.push(tab);
+    flowState.activeFlowTabId = tab.tabId;
+    syncActiveTabAliases();
+    markFlowDirty(true);
+    renderFlowTabs();
+    syncFlowName();
+    syncFlowInspector();
+    fitFlowView();
+    scheduleFlowRender();
+    return tab;
+}
+
+function openFlowById(flowId) {
+    const id = Number(flowId);
+    if (!Number.isFinite(id) || id <= 0) {
+        return;
+    }
+
+    const openTab = findOpenFlowTabByFlowId(id);
+    if (openTab) {
+        activateFlowTab(openTab.tabId, true);
+        fitFlowView();
+        return;
+    }
+
+    const cached = flowState.flows.find(flow => Number(flow.id) === id);
+    if (!cached) {
+        api(`/api/projeto/${flowState.projectId}/fluxos/${id}`, { method: 'GET' })
+            .then(data => {
+                if (!data.flow) {
+                    throw new Error('Fluxo nao encontrado');
+                }
+                refreshSavedFlowCache(data.flow);
+                setCurrentFlow(data.flow, false);
+                renderFlowList();
+                fitFlowView();
+                scheduleFlowRender();
+            })
+            .catch(err => showToast(err.message || 'Falha ao carregar fluxo', 'error'));
+        return;
+    }
+
+    setCurrentFlow(cached, false);
+    renderFlowList();
+    fitFlowView();
+}
+
+function closeFlowTab(tabId, force = false) {
+    const tab = findOpenFlowTabById(tabId);
+    if (!tab) {
+        return;
+    }
+
+    if (!force && tab.dirty && !confirm(`Fechar "${tab.name}" sem salvar?`)) {
+        return;
+    }
+
+    const index = flowState.openFlows.findIndex(item => item.tabId === tabId);
+    flowState.openFlows.splice(index, 1);
+
+    if (flowState.activeFlowTabId === tabId) {
+        const next = flowState.openFlows[index] || flowState.openFlows[index - 1] || flowState.openFlows[0] || null;
+        flowState.activeFlowTabId = next ? next.tabId : null;
+    }
+
+    if (flowState.openFlows.length === 0) {
+        ensureFallbackOpenTab();
+    } else if (!getActiveFlowTab()) {
+        const firstTab = flowState.openFlows[0];
+        if (firstTab) {
+            flowState.activeFlowTabId = firstTab.tabId;
+        }
+    }
+
+    syncActiveTabAliases();
+    markFlowDirty(Boolean(getActiveFlowTab()?.dirty));
+    renderFlowList();
+    syncFlowName();
+    syncFlowInspector();
+    fitFlowView();
+    scheduleFlowRender();
+}
+
+function markActiveTabDirty(value) {
+    const active = getActiveFlowTab();
+    if (!active) {
+        return;
+    }
+    active.dirty = Boolean(value);
+    flowState.dirty = active.dirty;
+    updateDirtyPill();
+}
+
 function bindFlowKeyboardShortcuts() {
     document.addEventListener('keydown', event => {
         const tab = document.getElementById('project-tab-fluxos');
@@ -133,44 +341,22 @@ async function loadFlowWorkspace(force = false) {
     try {
         const data = await api(`/api/projeto/${flowState.projectId}/fluxos`, { method: 'GET' });
         flowState.flows = Array.isArray(data.flows) ? data.flows : [];
-
-        if (flowState.currentFlow && flowState.dirty) {
-            renderFlowList();
-            syncFlowSelector();
-            syncFlowName();
-            syncFlowInspector();
-            scheduleFlowRender();
-        } else if (!flowState.currentFlow) {
+        if (flowState.openFlows.length === 0) {
             if (flowState.flows.length > 0) {
-                const first = flowState.flows[0];
-                setCurrentFlow(first, false);
-                fitFlowView();
-            } else {
-                const starter = createStarterGraph('Novo fluxo');
-                setCurrentFlow({
-                    id: null,
-                    name: starter.name,
-                    project_id: flowState.projectId,
-                    nodes: starter.nodes,
-                    edges: starter.edges,
-                    created_at: null,
-                    updated_at: null,
-                }, false);
-                fitFlowView();
-            }
-        } else if (flowState.currentFlowId) {
-            const found = flowState.flows.find(flow => Number(flow.id) === Number(flowState.currentFlowId));
-            if (found) {
-                setCurrentFlow(found, false);
-                fitFlowView();
-            } else if (flowState.flows.length > 0) {
                 setCurrentFlow(flowState.flows[0], false);
                 fitFlowView();
+            } else {
+                ensureFallbackOpenTab();
+                fitFlowView();
+            }
+        } else if (!getActiveFlowTab()) {
+            const firstTab = flowState.openFlows[0];
+            if (firstTab) {
+                activateFlowTab(firstTab.tabId, true);
             }
         }
 
         renderFlowList();
-        syncFlowSelector();
         syncFlowInspector();
         scheduleFlowRender();
     } catch (err) {
@@ -181,46 +367,48 @@ async function loadFlowWorkspace(force = false) {
 }
 
 async function loadFlowById(flowId) {
-    if (!flowId) {
-        return;
-    }
-
-    if (!confirmFlowDiscardIfDirty()) {
-        syncFlowSelector();
-        return;
-    }
-
-    const cached = flowState.flows.find(flow => Number(flow.id) === Number(flowId));
-    if (cached) {
-        setCurrentFlow(cached, false);
-        renderFlowList();
-        syncFlowSelector();
-        fitFlowView();
-        scheduleFlowRender();
-        return;
-    }
-
-    try {
-        const data = await api(`/api/projeto/${flowState.projectId}/fluxos/${flowId}`, { method: 'GET' });
-        if (!data.flow) {
-            throw new Error('Fluxo nao encontrado');
-        }
-        setCurrentFlow(data.flow, false);
-        renderFlowList();
-        syncFlowSelector();
-        fitFlowView();
-        scheduleFlowRender();
-    } catch (err) {
-        showToast(err.message || 'Falha ao carregar fluxo', 'error');
-    }
+    openFlowById(flowId);
 }
 
 function setCurrentFlow(flow, preserveDirty = false) {
-    const normalized = cloneGraph(flow);
-    flowState.currentFlowId = normalized.id || null;
-    flowState.currentFlow = normalized;
-    flowState.nodes = Array.isArray(normalized.nodes) ? cloneGraph(normalized.nodes) : [];
-    flowState.edges = Array.isArray(normalized.edges) ? cloneGraph(normalized.edges) : [];
+    const normalized = cloneFlowGraph(flow);
+    const flowId = normalized?.id ?? normalized?.flowId ?? null;
+    const existing = flowId ? findOpenFlowTabByFlowId(flowId) : (normalized?.tabId ? findOpenFlowTabById(normalized.tabId) : null);
+
+    if (existing) {
+        existing.name = normalized?.name || existing.name || 'Fluxo sem titulo';
+        existing.project_id = normalized?.project_id || flowState.projectId;
+        existing.nodes = Array.isArray(normalized?.nodes) ? normalized.nodes : existing.nodes;
+        existing.edges = Array.isArray(normalized?.edges) ? normalized.edges : existing.edges;
+        existing.created_at = normalized?.created_at ?? existing.created_at ?? null;
+        existing.updated_at = normalized?.updated_at ?? existing.updated_at ?? null;
+        existing.flowId = flowId ? Number(flowId) : existing.flowId || null;
+        existing.isNew = !existing.flowId;
+        if (!preserveDirty) {
+            existing.dirty = false;
+        } else if (normalized && Object.prototype.hasOwnProperty.call(normalized, 'dirty')) {
+            existing.dirty = Boolean(normalized.dirty);
+        }
+        flowState.activeFlowTabId = existing.tabId;
+    } else {
+        const tab = createOpenFlowTab(normalized, {
+            flowId,
+            name: normalized?.name,
+            project_id: normalized?.project_id || flowState.projectId,
+            created_at: normalized?.created_at,
+            updated_at: normalized?.updated_at,
+            dirty: Boolean(normalized?.dirty),
+            isNew: !flowId,
+            tabId: normalized?.tabId || makeFlowTabId(flowId),
+        });
+        if (!preserveDirty) {
+            tab.dirty = false;
+        }
+        flowState.openFlows.push(tab);
+        flowState.activeFlowTabId = tab.tabId;
+    }
+
+    syncActiveTabAliases();
     flowState.selectedNodeId = null;
     flowState.secondarySelectedNodeId = null;
     flowState.selectedEdgeId = null;
@@ -232,6 +420,71 @@ function setCurrentFlow(flow, preserveDirty = false) {
     syncFlowName();
     syncFlowInspector();
     updateConnectModeUi();
+    renderFlowTabs();
+}
+
+function refreshSavedFlowCache(savedFlow) {
+    if (!savedFlow || !savedFlow.id) {
+        return;
+    }
+
+    const nextFlow = cloneFlowGraph(savedFlow);
+    const index = flowState.flows.findIndex(flow => Number(flow.id) === Number(nextFlow.id));
+    if (index >= 0) {
+        flowState.flows[index] = nextFlow;
+    } else {
+        flowState.flows.unshift(nextFlow);
+    }
+}
+
+function commitSavedFlowToActiveTab(savedFlow) {
+    if (!savedFlow) {
+        return null;
+    }
+
+    const active = getActiveFlowTab();
+    if (!active) {
+        return setCurrentFlow(savedFlow, false);
+    }
+
+    const normalized = cloneFlowGraph(savedFlow);
+    active.tabId = active.tabId || makeFlowTabId(normalized.id || null);
+    active.flowId = normalized.id ? Number(normalized.id) : null;
+    active.name = normalized.name || active.name || 'Fluxo sem titulo';
+    active.project_id = normalized.project_id || flowState.projectId;
+    active.nodes = Array.isArray(normalized.nodes) ? cloneFlowGraph(normalized.nodes) : [];
+    active.edges = Array.isArray(normalized.edges) ? cloneFlowGraph(normalized.edges) : [];
+    active.created_at = normalized.created_at ?? active.created_at ?? null;
+    active.updated_at = normalized.updated_at ?? active.updated_at ?? null;
+    active.isNew = !active.flowId;
+    active.dirty = false;
+
+    syncActiveTabAliases();
+    refreshSavedFlowCache(active);
+    renderFlowTabs();
+    syncFlowName();
+    syncFlowInspector();
+    scheduleFlowRender();
+    return active;
+}
+
+function openImportedFlowTab(graph, meta = {}) {
+    const tab = createOpenFlowTab(graph, {
+        name: meta.name || graph?.name || 'Fluxo importado',
+        project_id: flowState.projectId,
+        dirty: true,
+        isNew: true,
+    });
+    flowState.openFlows.push(tab);
+    flowState.activeFlowTabId = tab.tabId;
+    syncActiveTabAliases();
+    markFlowDirty(true);
+    renderFlowTabs();
+    syncFlowName();
+    syncFlowInspector();
+    fitFlowView();
+    scheduleFlowRender();
+    return tab;
 }
 
 function createStarterGraph(name = 'Novo fluxo') {
@@ -249,7 +502,828 @@ function createStarterGraph(name = 'Novo fluxo') {
     };
 }
 
+function openNewFlowModal() {
+    const jsonInput = document.getElementById('flow-import-json');
+    const mermaidInput = document.getElementById('flow-import-mermaid');
+    const fileInput = document.getElementById('flow-import-file');
+    const nameInput = document.getElementById('flow-import-name');
+    const errorBox = document.getElementById('flow-import-error');
+
+    if (jsonInput) jsonInput.value = '';
+    if (mermaidInput) mermaidInput.value = '';
+    if (fileInput) fileInput.value = '';
+    if (nameInput) nameInput.value = '';
+    if (errorBox) {
+        errorBox.textContent = '';
+        errorBox.classList.add('hidden');
+    }
+
+    openModal('modal-flow-new');
+}
+
+function createBlankFlowFromModal() {
+    closeModal('modal-flow-new');
+    createBlankFlowTab();
+}
+
+function openFlowSettingsModal() {
+    const active = getActiveFlowTab();
+    if (!active) {
+        showToast('Nenhum fluxo ativo.', 'error');
+        return;
+    }
+
+    const input = document.getElementById('flow-edit-name');
+    const title = document.getElementById('flow-current-title');
+    if (input) {
+        input.value = String(active.name || '');
+    }
+    if (title) {
+        title.textContent = String(active.name || 'Fluxo sem titulo');
+    }
+
+    openModal('modal-flow-settings');
+}
+
+function saveFlowSettings() {
+    const active = getActiveFlowTab();
+    if (!active) {
+        showToast('Nenhum fluxo ativo.', 'error');
+        return;
+    }
+
+    const nameInput = document.getElementById('flow-edit-name');
+    const nextName = nameInput ? nameInput.value.trim() : '';
+    if (!nextName) {
+        showToast('Informe um nome para o fluxo.', 'error');
+        return;
+    }
+
+    active.name = nextName;
+    syncActiveTabAliases();
+    markFlowDirty(true);
+    syncFlowName();
+    renderFlowTabs();
+    renderFlowLibrary();
+    closeModal('modal-flow-settings');
+}
+
+function openExportModal() {
+    const active = getActiveFlowTab();
+    if (!active || (!active.nodes.length && !active.edges.length)) {
+        showToast('Nao ha fluxo para exportar.', 'error');
+        return;
+    }
+
+    openModal('modal-flow-export');
+}
+
+function getActiveFlowExportGraph() {
+    const active = getActiveFlowTab();
+    if (!active) {
+        return null;
+    }
+
+    return buildPayloadGraph(active.name || 'Fluxo sem titulo');
+}
+
+function downloadTextFile(filename, content, mimeType = 'text/plain;charset=utf-8') {
+    const blob = new Blob([content], { type: mimeType });
+    downloadBlob(filename, blob);
+}
+
+function downloadBlob(filename, blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function closeImportError() {
+    const errorBox = document.getElementById('flow-import-error');
+    if (!errorBox) {
+        return;
+    }
+    errorBox.textContent = '';
+    errorBox.classList.add('hidden');
+}
+
+function showImportError(message) {
+    const errorBox = document.getElementById('flow-import-error');
+    if (!errorBox) {
+        showToast(message, 'error');
+        return;
+    }
+    errorBox.textContent = message;
+    errorBox.classList.remove('hidden');
+}
+
+function stripCodeFences(text) {
+    let value = String(text || '').trim();
+    if (!value) {
+        return '';
+    }
+
+    value = value.replace(/^```(?:json|mermaid)?\s*/i, '');
+    value = value.replace(/```$/i, '');
+    return value.trim();
+}
+
+function normalizeFlowNodeType(type, fallback = 'process') {
+    const normalized = String(type || fallback || 'process').toLowerCase();
+    if (['start', 'process', 'decision', 'end'].includes(normalized)) {
+        return normalized;
+    }
+    return fallback;
+}
+
+function parseJSONFlowImport(text) {
+    const raw = stripCodeFences(text);
+    if (!raw) {
+        throw new Error('Informe um JSON para importar.');
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (err) {
+        throw new Error('JSON invalido: ' + err.message);
+    }
+
+    const graph = parsed && typeof parsed === 'object' ? parsed : {};
+    return normalizeImportedFlow(graph, 'json');
+}
+
+function parseMermaidNodeToken(token) {
+    const raw = String(token || '').trim();
+    if (!raw) {
+        return null;
+    }
+
+    const nodePatterns = [
+        { regex: /^([A-Za-z0-9_:-]+)\s*\(\(\s*(.*?)\s*\)\)$/, type: 'circle' },
+        { regex: /^([A-Za-z0-9_:-]+)\s*\{\s*(.*?)\s*\}$/, type: 'decision' },
+        { regex: /^([A-Za-z0-9_:-]+)\s*\[\s*(.*?)\s*\]$/, type: 'process' },
+        { regex: /^([A-Za-z0-9_:-]+)\s*\(\s*(.*?)\s*\)$/, type: 'process' },
+    ];
+
+    for (const entry of nodePatterns) {
+        const match = raw.match(entry.regex);
+        if (match) {
+            return {
+                id: match[1],
+                label: match[2] ? String(match[2]).trim() : match[1],
+                typeHint: entry.type,
+            };
+        }
+    }
+
+    return {
+        id: raw.replace(/[^A-Za-z0-9_:-]/g, '_'),
+        label: raw,
+        typeHint: 'process',
+    };
+}
+
+function parseMermaidEdgeStatement(statement) {
+    const raw = String(statement || '').trim();
+    if (!raw) {
+        return null;
+    }
+
+    const arrowMatch = raw.match(/(.*?)\s*(-->|-\.\->|==>|---)\s*(.*)$/);
+    if (!arrowMatch) {
+        return null;
+    }
+
+    let left = arrowMatch[1].trim();
+    let right = arrowMatch[3].trim();
+    let label = '';
+
+    const leftLabelMatch = left.match(/^(.*)\|\s*([^|]+?)\s*\|$/);
+    if (leftLabelMatch) {
+        left = leftLabelMatch[1].trim();
+        label = leftLabelMatch[2].trim();
+    }
+
+    const rightLabelMatch = right.match(/^\|\s*([^|]+?)\s*\|\s*(.*)$/);
+    if (rightLabelMatch) {
+        label = rightLabelMatch[1].trim();
+        right = rightLabelMatch[2].trim();
+    }
+
+    return {
+        sourceToken: left,
+        targetToken: right,
+        label,
+    };
+}
+
+function parseMermaidFlowImport(text) {
+    const raw = stripCodeFences(text);
+    if (!raw) {
+        throw new Error('Informe um Mermaid para importar.');
+    }
+
+    const statements = raw
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('```'));
+
+    const typeHints = new Map();
+    const nodeIndex = new Map();
+    const orderedNodeIds = [];
+    const edgeRows = [];
+
+    statements.forEach(statement => {
+        if (/^(flowchart|graph)\b/i.test(statement)) {
+            return;
+        }
+        if (/^subgraph\b/i.test(statement) || /^end\b/i.test(statement)) {
+            return;
+        }
+        if (/^%%/.test(statement)) {
+            const hintMatch = statement.match(/^%%\s*flow-type\s*:\s*([A-Za-z0-9_:-]+)\s*:\s*(start|process|decision|end)\s*$/i);
+            if (hintMatch) {
+                typeHints.set(hintMatch[1], normalizeFlowNodeType(hintMatch[2]));
+            }
+            return;
+        }
+
+        const edge = parseMermaidEdgeStatement(statement);
+        if (edge) {
+            const source = parseMermaidNodeToken(edge.sourceToken);
+            const target = parseMermaidNodeToken(edge.targetToken);
+            if (source && !nodeIndex.has(source.id)) {
+                nodeIndex.set(source.id, {
+                    id: source.id,
+                    label: source.label,
+                    typeHint: source.typeHint,
+                });
+                orderedNodeIds.push(source.id);
+            }
+            if (target && !nodeIndex.has(target.id)) {
+                nodeIndex.set(target.id, {
+                    id: target.id,
+                    label: target.label,
+                    typeHint: target.typeHint,
+                });
+                orderedNodeIds.push(target.id);
+            }
+            edgeRows.push({
+                sourceId: source ? source.id : '',
+                targetId: target ? target.id : '',
+                label: edge.label || '',
+            });
+            return;
+        }
+
+        const node = parseMermaidNodeToken(statement);
+        if (node && !nodeIndex.has(node.id)) {
+            nodeIndex.set(node.id, {
+                id: node.id,
+                label: node.label,
+                typeHint: node.typeHint,
+            });
+            orderedNodeIds.push(node.id);
+        }
+    });
+
+    if (nodeIndex.size === 0) {
+        throw new Error('Nao foi possivel identificar nodes no Mermaid informado.');
+    }
+
+    const graph = {
+        name: 'Fluxo importado',
+        nodes: [],
+        edges: [],
+    };
+
+    const usedNodeIds = new Set();
+    const rawToFinalId = new Map();
+
+    orderedNodeIds.forEach((rawId, index) => {
+        const node = nodeIndex.get(rawId);
+        if (!node) {
+            return;
+        }
+        const safeId = makeUniqueIdForCollection(rawId || `node_${index + 1}`, usedNodeIds);
+        usedNodeIds.add(safeId);
+        rawToFinalId.set(rawId, safeId);
+        graph.nodes.push({
+            id: safeId,
+            label: node.label || safeId,
+            type: normalizeFlowNodeType(typeHints.get(rawId) || node.typeHint || 'process', 'process'),
+            x: 100 + (graph.nodes.length % 4) * 220,
+            y: 120 + Math.floor(graph.nodes.length / 4) * 150,
+        });
+    });
+
+    const firstNode = graph.nodes[0];
+    const lastNode = graph.nodes[graph.nodes.length - 1];
+    const hasStart = graph.nodes.some(node => node.type === 'start');
+    const hasEnd = graph.nodes.some(node => node.type === 'end');
+
+    if (!hasStart && firstNode) {
+        firstNode.type = 'start';
+        if (!/in[ií]cio|start/i.test(firstNode.label || '')) {
+            firstNode.label = 'Início';
+        }
+    }
+    if (!hasEnd && lastNode) {
+        lastNode.type = 'end';
+        if (!/fim|end/i.test(lastNode.label || '')) {
+            lastNode.label = 'Fim';
+        }
+    }
+
+    const usedEdgeIds = new Set();
+    edgeRows.forEach((edge, index) => {
+        const from = rawToFinalId.get(edge.sourceId);
+        const to = rawToFinalId.get(edge.targetId);
+        if (!from || !to || from === to) {
+            return;
+        }
+        graph.edges.push({
+            id: makeUniqueIdForCollection(`edge_${index + 1}`, usedEdgeIds),
+            from,
+            to,
+            label: edge.label || '',
+        });
+    });
+
+    if (!graph.edges.length && graph.nodes.length > 1) {
+        for (let index = 0; index < graph.nodes.length - 1; index += 1) {
+            graph.edges.push({
+                id: makeUniqueIdForCollection(`edge_${index + 1}`, usedEdgeIds),
+                from: graph.nodes[index].id,
+                to: graph.nodes[index + 1].id,
+                label: '',
+            });
+        }
+    }
+
+    return normalizeImportedFlow(graph, 'mermaid');
+}
+
+function normalizeImportedFlow(graph, source = 'json') {
+    if (!graph || typeof graph !== 'object') {
+        throw new Error('Fluxo importado invalido.');
+    }
+
+    const rawNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+    const rawEdges = Array.isArray(graph.edges) ? graph.edges : [];
+    if (!rawNodes.length) {
+        throw new Error('O fluxo importado precisa ter ao menos um node.');
+    }
+
+    const normalized = {
+        name: String(graph.name || 'Fluxo importado').trim() || 'Fluxo importado',
+        nodes: [],
+        edges: [],
+    };
+
+    const usedNodeIds = new Set();
+    const rawToFinalId = new Map();
+
+    rawNodes.forEach((rawNode, index) => {
+        const rawId = String(rawNode?.id ?? rawNode?.node_id ?? rawNode?.key ?? rawNode?.name ?? `node_${index + 1}`).trim();
+        const finalId = makeUniqueIdForCollection(rawId || `node_${index + 1}`, usedNodeIds);
+        usedNodeIds.add(finalId);
+        if (!rawToFinalId.has(rawId)) {
+            rawToFinalId.set(rawId, finalId);
+        }
+
+        const label = String(rawNode?.label ?? rawNode?.text ?? rawNode?.title ?? rawNode?.name ?? rawId).trim() || finalId;
+        const type = normalizeFlowNodeType(rawNode?.type ?? rawNode?.kind ?? rawNode?.shape ?? 'process', 'process');
+        const x = Number(rawNode?.x ?? rawNode?.position?.x ?? rawNode?.left ?? 0);
+        const y = Number(rawNode?.y ?? rawNode?.position?.y ?? rawNode?.top ?? 0);
+
+        normalized.nodes.push({
+            id: finalId,
+            label,
+            type,
+            x: Number.isFinite(x) ? Math.max(0, Math.round(x)) : 0,
+            y: Number.isFinite(y) ? Math.max(0, Math.round(y)) : 0,
+        });
+    });
+
+    const hasStart = normalized.nodes.some(node => node.type === 'start');
+    const hasEnd = normalized.nodes.some(node => node.type === 'end');
+    if (!hasStart) {
+        normalized.nodes[0].type = 'start';
+        if (!/in[ií]cio|start/i.test(normalized.nodes[0].label || '')) {
+            normalized.nodes[0].label = 'Início';
+        }
+    }
+    if (!hasEnd) {
+        if (normalized.nodes.length === 1) {
+            const baseX = normalized.nodes[0].x + 240;
+            const baseY = normalized.nodes[0].y;
+            const endId = makeUniqueIdForCollection('end_1', usedNodeIds);
+            usedNodeIds.add(endId);
+            normalized.nodes.push({
+                id: endId,
+                label: 'Fim',
+                type: 'end',
+                x: Number.isFinite(baseX) ? Math.max(0, Math.round(baseX)) : 240,
+                y: Number.isFinite(baseY) ? Math.max(0, Math.round(baseY)) : 0,
+            });
+        } else {
+            const last = normalized.nodes[normalized.nodes.length - 1];
+            last.type = 'end';
+            if (!/fim|end/i.test(last.label || '')) {
+                last.label = 'Fim';
+            }
+        }
+    }
+
+    const usedEdgeIds = new Set();
+    rawEdges.forEach((rawEdge, index) => {
+        const sourceId = String(rawEdge?.from ?? rawEdge?.source ?? rawEdge?.source_node_id ?? rawEdge?.sourceId ?? '').trim();
+        const targetId = String(rawEdge?.to ?? rawEdge?.target ?? rawEdge?.target_node_id ?? rawEdge?.targetId ?? '').trim();
+        const from = rawToFinalId.get(sourceId) || rawToFinalId.get(String(sourceId));
+        const to = rawToFinalId.get(targetId) || rawToFinalId.get(String(targetId));
+        if (!from || !to || from === to) {
+            return;
+        }
+
+        const edgeIdRaw = String(rawEdge?.id ?? rawEdge?.edge_id ?? `edge_${index + 1}`).trim();
+        const edgeId = makeUniqueIdForCollection(edgeIdRaw || `edge_${index + 1}`, usedEdgeIds);
+        usedEdgeIds.add(edgeId);
+        normalized.edges.push({
+            id: edgeId,
+            from,
+            to,
+            label: String(rawEdge?.label ?? rawEdge?.text ?? '').trim(),
+        });
+    });
+
+    if (!normalized.edges.length && normalized.nodes.length > 1) {
+        normalized.edges.push({
+            id: makeUniqueIdForCollection('edge_1', usedEdgeIds),
+            from: normalized.nodes[0].id,
+            to: normalized.nodes[1].id,
+            label: '',
+        });
+    }
+
+    if (source === 'mermaid') {
+        const startNode = normalized.nodes.find(node => node.type === 'start');
+        const endNode = normalized.nodes.find(node => node.type === 'end');
+        if (startNode && endNode && startNode.id === endNode.id && normalized.nodes.length > 1) {
+            normalized.nodes[normalized.nodes.length - 1].type = 'end';
+        }
+    }
+
+    return normalized;
+}
+
+function buildMermaidExport(graph) {
+    const nodeIdMap = new Map();
+    const lines = ['flowchart TD'];
+
+    graph.nodes.forEach((node, index) => {
+        const mermaidId = `n${index + 1}`;
+        nodeIdMap.set(String(node.id), mermaidId);
+        lines.push(`%% flow-type:${mermaidId}:${normalizeFlowNodeType(node.type)}`);
+
+        const label = String(node.label || mermaidId).replace(/[\[\]\{\}\(\)]/g, '');
+        if (node.type === 'decision') {
+            lines.push(`${mermaidId}{${label}}`);
+        } else if (node.type === 'start' || node.type === 'end') {
+            lines.push(`${mermaidId}((${label}))`);
+        } else {
+            lines.push(`${mermaidId}[${label}]`);
+        }
+    });
+
+    graph.edges.forEach(edge => {
+        const from = nodeIdMap.get(String(edge.from));
+        const to = nodeIdMap.get(String(edge.to));
+        if (!from || !to) {
+            return;
+        }
+        const label = String(edge.label || '').trim();
+        if (label) {
+            lines.push(`${from} -->|${label.replace(/\|/g, '')}| ${to}`);
+        } else {
+            lines.push(`${from} --> ${to}`);
+        }
+    });
+
+    return lines.join('\n');
+}
+
+function exportFlowToJSON() {
+    const graph = getActiveFlowExportGraph();
+    if (!graph) {
+        showToast('Nao ha fluxo para exportar.', 'error');
+        return;
+    }
+
+    const filename = `${sanitizeFileName(graph.name || 'fluxo')}.json`;
+    downloadTextFile(filename, JSON.stringify(graph, null, 2), 'application/json;charset=utf-8');
+    closeModal('modal-flow-export');
+}
+
+function exportFlowToMermaid() {
+    const graph = getActiveFlowExportGraph();
+    if (!graph) {
+        showToast('Nao ha fluxo para exportar.', 'error');
+        return;
+    }
+
+    const filename = `${sanitizeFileName(graph.name || 'fluxo')}.mmd`;
+    downloadTextFile(filename, buildMermaidExport(graph), 'text/plain;charset=utf-8');
+    closeModal('modal-flow-export');
+}
+
+async function exportFlowToPNG() {
+    const graph = getActiveFlowExportGraph();
+    if (!graph || !graph.nodes.length) {
+        showToast('Nao ha fluxo para exportar.', 'error');
+        return;
+    }
+
+    const bounds = getFlowBounds();
+    if (!bounds) {
+        showToast('Nao ha fluxo para exportar.', 'error');
+        return;
+    }
+
+    const padding = 90;
+    const scale = 2;
+    const width = Math.max(Math.ceil((bounds.maxX - bounds.minX) + padding * 2), 640);
+    const height = Math.max(Math.ceil((bounds.maxY - bounds.minY) + padding * 2), 420);
+    const canvas = document.createElement('canvas');
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+        showToast('Nao foi possivel gerar a imagem.', 'error');
+        return;
+    }
+
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#fbfdff';
+    ctx.fillRect(0, 0, width, height);
+    drawExportGrid(ctx, width, height);
+
+    const offsetX = padding - bounds.minX;
+    const offsetY = padding - bounds.minY;
+
+    graph.edges.forEach(edge => {
+        const source = graph.nodes.find(node => String(node.id) === String(edge.from));
+        const target = graph.nodes.find(node => String(node.id) === String(edge.to));
+        if (!source || !target) {
+            return;
+        }
+
+        const start = getNodeCenter(source);
+        const end = getNodeCenter(target);
+        const sx = start.x + offsetX;
+        const sy = start.y + offsetY;
+        const tx = end.x + offsetX;
+        const ty = end.y + offsetY;
+
+        ctx.strokeStyle = 'rgba(16, 94, 163, 0.75)';
+        ctx.fillStyle = 'rgba(16, 94, 163, 0.75)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+
+        const angle = Math.atan2(ty - sy, tx - sx);
+        const arrowSize = 9;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(tx - arrowSize * Math.cos(angle - Math.PI / 7), ty - arrowSize * Math.sin(angle - Math.PI / 7));
+        ctx.lineTo(tx - arrowSize * Math.cos(angle + Math.PI / 7), ty - arrowSize * Math.sin(angle + Math.PI / 7));
+        ctx.closePath();
+        ctx.fill();
+
+        if (edge.label) {
+            ctx.save();
+            ctx.font = '600 12px DM Sans, sans-serif';
+            ctx.fillStyle = '#4b5563';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(edge.label), (sx + tx) / 2, ((sy + ty) / 2) - 10);
+            ctx.restore();
+        }
+    });
+
+    graph.nodes.forEach(node => {
+        const size = getNodeSize(node.type);
+        const x = Number(node.x || 0) + offsetX;
+        const y = Number(node.y || 0) + offsetY;
+        drawExportNode(ctx, node, x, y, size.width, size.height);
+    });
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+        showToast('Nao foi possivel gerar a imagem.', 'error');
+        return;
+    }
+
+    downloadBlob(`${sanitizeFileName(graph.name || 'fluxo')}.png`, blob);
+    closeModal('modal-flow-export');
+}
+
+function drawExportGrid(ctx, width, height) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(16, 94, 163, 0.08)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= width; x += 28) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+    }
+    for (let y = 0; y <= height; y += 28) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawExportNode(ctx, node, x, y, width, height) {
+    const palette = {
+        start: ['#ecfdf5', '#d1fae5', '#059669'],
+        process: ['#eff6ff', '#dbeafe', '#2563eb'],
+        decision: ['#fff7ed', '#ffedd5', '#f97316'],
+        end: ['#fef2f2', '#fee2e2', '#dc2626'],
+    };
+    const [bgTop, bgBottom, border] = palette[node.type] || palette.process;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 3;
+
+    if (node.type === 'decision') {
+        ctx.fillStyle = bgTop;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x + width / 2, y);
+        ctx.lineTo(x + width, y + height / 2);
+        ctx.lineTo(x + width / 2, y + height);
+        ctx.lineTo(x, y + height / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.stroke();
+    } else if (node.type === 'start' || node.type === 'end') {
+        const radius = Math.min(width, height) / 2;
+        const cx = x + width / 2;
+        const cy = y + height / 2;
+        const gradient = ctx.createLinearGradient(x, y, x, y + height);
+        gradient.addColorStop(0, bgTop);
+        gradient.addColorStop(1, bgBottom);
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.stroke();
+    } else {
+        const gradient = ctx.createLinearGradient(x, y, x, y + height);
+        gradient.addColorStop(0, bgTop);
+        gradient.addColorStop(1, bgBottom);
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 2;
+        roundedRect(ctx, x, y, width, height, 16);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.stroke();
+    }
+
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = '#111827';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 12px DM Sans, sans-serif';
+    const typeLabel = String(node.type || '').toUpperCase();
+    ctx.fillText(typeLabel, x + width / 2, y + Math.max(16, height * 0.28));
+    ctx.font = '700 15px DM Sans, sans-serif';
+    wrapCanvasText(ctx, String(node.label || ''), x + 16, y + height * 0.58, width - 32, 18);
+    ctx.restore();
+}
+
+function roundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    if (!words.length) {
+        return;
+    }
+
+    const lines = [];
+    let current = words[0];
+    for (let index = 1; index < words.length; index += 1) {
+        const word = words[index];
+        const candidate = `${current} ${word}`;
+        if (ctx.measureText(candidate).width <= maxWidth) {
+            current = candidate;
+        } else {
+            lines.push(current);
+            current = word;
+        }
+    }
+    lines.push(current);
+
+    const totalHeight = (lines.length - 1) * lineHeight;
+    lines.forEach((line, index) => {
+        ctx.fillText(line, x + maxWidth / 2, y - totalHeight / 2 + (index * lineHeight));
+    });
+}
+
+function sanitizeFileName(value) {
+    return String(value || 'fluxo')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .toLowerCase() || 'fluxo';
+}
+
+async function importFlowFromText(format) {
+    closeImportError();
+    const activeName = document.getElementById('flow-import-name')?.value.trim() || 'Fluxo importado';
+    const jsonInput = document.getElementById('flow-import-json');
+    const mermaidInput = document.getElementById('flow-import-mermaid');
+
+    try {
+        let graph;
+        if (format === 'mermaid') {
+            graph = parseMermaidFlowImport(mermaidInput ? mermaidInput.value : '');
+        } else {
+            graph = parseJSONFlowImport(jsonInput ? jsonInput.value : '');
+        }
+        graph.name = activeName || graph.name;
+        closeModal('modal-flow-new');
+        openImportedFlowTab(graph, { name: graph.name });
+    } catch (err) {
+        showImportError(err.message || 'Falha ao importar fluxo.');
+    }
+}
+
+async function importFlowFromFile(input) {
+    closeImportError();
+    const file = input && input.files ? input.files[0] : null;
+    if (!file) {
+        return;
+    }
+
+    try {
+        const text = await file.text();
+        const lower = file.name.toLowerCase();
+        const graph = lower.endsWith('.mmd') || lower.endsWith('.mermaid')
+            ? parseMermaidFlowImport(text)
+            : parseJSONFlowImport(text);
+        closeModal('modal-flow-new');
+        openImportedFlowTab(graph, { name: graph.name || sanitizeFileName(file.name) });
+    } catch (err) {
+        showImportError(err.message || 'Falha ao importar arquivo.');
+    } finally {
+        if (input) {
+            input.value = '';
+        }
+    }
+}
+
 function renderFlowList() {
+    renderFlowTabs();
+    renderFlowLibrary();
+    return;
     const list = document.getElementById('flow-list');
     const select = document.getElementById('flow-select');
     if (!list || !select) {
@@ -293,6 +1367,8 @@ function renderFlowList() {
 }
 
 function syncFlowSelector() {
+    renderFlowTabs();
+    return;
     const select = document.getElementById('flow-select');
     if (!select) {
         return;
@@ -301,11 +1377,91 @@ function syncFlowSelector() {
 }
 
 function syncFlowName() {
-    const input = document.getElementById('flow-name');
-    if (!input) {
+    const input = document.getElementById('flow-edit-name');
+    if (input) {
+        input.value = flowState.currentFlow ? String(flowState.currentFlow.name || '') : '';
+    }
+
+    const title = document.getElementById('flow-current-title');
+    if (title) {
+        title.textContent = flowState.currentFlow ? String(flowState.currentFlow.name || 'Fluxo sem titulo') : 'Fluxo sem titulo';
+    }
+}
+
+function renderFlowTabs() {
+    const tabs = document.getElementById('flow-tabs');
+    if (!tabs) {
         return;
     }
-    input.value = flowState.currentFlow ? String(flowState.currentFlow.name || '') : '';
+
+    if (flowState.openFlows.length === 0) {
+        tabs.innerHTML = `
+            <button type="button" class="flow-tab-add" onclick="openNewFlowModal()" title="Novo fluxo">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        `;
+        return;
+    }
+
+    tabs.innerHTML = flowState.openFlows.map(tab => {
+        const active = tab.tabId === flowState.activeFlowTabId;
+        const dirty = tab.dirty ? '<span class="flow-tab-dirty">•</span>' : '';
+        const closeBtn = flowState.openFlows.length > 1 ? `
+            <button type="button" class="flow-tab-close" title="Fechar aba" onclick="event.stopPropagation(); closeFlowTab('${tab.tabId}')">
+                <i class="bi bi-x"></i>
+            </button>
+        ` : '';
+        return `
+            <div class="flow-tab ${active ? 'active' : ''}" role="button" tabindex="0" onclick="activateFlowTab('${tab.tabId}')">
+                <span class="flow-tab-name">${escapeHtml(tab.name || 'Fluxo sem titulo')}</span>
+                ${dirty}
+                ${closeBtn}
+            </div>
+        `;
+    }).join('') + `
+        <button type="button" class="flow-tab-add" onclick="openNewFlowModal()" title="Novo fluxo">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    `;
+}
+
+function renderFlowLibrary() {
+    const list = document.getElementById('flow-library-list');
+    if (!list) {
+        return;
+    }
+
+    const openFlowIds = new Set(flowState.openFlows.filter(tab => tab.flowId).map(tab => Number(tab.flowId)));
+    const flows = flowState.flows.slice();
+
+    if (flows.length === 0) {
+        list.innerHTML = `
+            <div class="flow-empty-list">
+                <i class="bi bi-inbox"></i>
+                <span>Nenhum fluxo salvo neste projeto ainda.</span>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = flows.map(flow => {
+        const id = Number(flow.id);
+        const opened = openFlowIds.has(id);
+        const nodeCount = Array.isArray(flow.nodes) ? flow.nodes.length : 0;
+        const edgeCount = Array.isArray(flow.edges) ? flow.edges.length : 0;
+        const updated = flow.updated_at ? new Date(String(flow.updated_at).replace(' ', 'T')) : null;
+        const updatedLabel = updated && !Number.isNaN(updated.getTime())
+            ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(updated)
+            : 'sem data';
+
+        return `
+            <button type="button" class="flow-card ${opened ? 'active' : ''}" onclick="openFlowById(${id})">
+                <strong>${escapeHtml(flow.name || `Fluxo ${id}`)}</strong>
+                <span>${nodeCount} nodes · ${edgeCount} edges</span>
+                <small>${opened ? 'Aberto' : 'Atualizado em ' + escapeHtml(updatedLabel)}</small>
+            </button>
+        `;
+    }).join('');
 }
 
 function syncFlowInspector() {
@@ -1221,63 +2377,56 @@ function deleteSelectedFlowElement() {
 }
 
 function newFlow() {
-    if (!confirmFlowDiscardIfDirty()) {
-        return;
-    }
-
-    const starter = createStarterGraph('Novo fluxo');
-    setCurrentFlow({
-        id: null,
-        name: starter.name,
-        project_id: flowState.projectId,
-        nodes: starter.nodes,
-        edges: starter.edges,
-        created_at: null,
-        updated_at: null,
-    }, false);
-    renderFlowList();
-    syncFlowSelector();
-    fitFlowView();
-    scheduleFlowRender();
+    openNewFlowModal();
 }
 
 function deleteCurrentFlow() {
-    if (!flowState.currentFlowId) {
-        showToast('Este fluxo ainda nao foi salvo.', 'info');
+    const active = getActiveFlowTab();
+    if (!active) {
         return;
     }
 
-    if (!confirm('Excluir este fluxo?')) {
+    const message = active.flowId
+        ? `Excluir o fluxo "${active.name || 'Fluxo sem titulo'}"?`
+        : `Fechar o fluxo "${active.name || 'Fluxo sem titulo'}" sem salvar?`;
+
+    if (!confirm(message)) {
         return;
     }
 
-    api(`/api/projeto/${flowState.projectId}/fluxos/${flowState.currentFlowId}/delete`, { method: 'POST' })
+    if (!active.flowId) {
+        closeFlowTab(active.tabId, true);
+        showToast('Fluxo fechado', 'success');
+        return;
+    }
+
+    api(`/api/projeto/${flowState.projectId}/fluxos/${active.flowId}/delete`, { method: 'POST' })
         .then(data => {
             if (data.error) {
                 showToast(data.error, 'error');
                 return;
             }
 
-            flowState.currentFlowId = null;
-            flowState.currentFlow = null;
-            flowState.nodes = [];
-            flowState.edges = [];
-            flowState.selectedNodeId = null;
-            flowState.selectedEdgeId = null;
-            markFlowDirty(false);
-            loadFlowWorkspace(true);
+            const tabId = active.tabId;
+            closeFlowTab(tabId, true);
+            flowState.flows = flowState.flows.filter(flow => Number(flow.id) !== Number(active.flowId));
+            renderFlowTabs();
+            renderFlowLibrary();
             showToast('Fluxo excluido', 'success');
         })
         .catch(err => showToast(err.message || 'Falha ao excluir fluxo', 'error'));
 }
 
 async function saveCurrentFlow() {
-    if (!flowState.currentFlow) {
+    const active = getActiveFlowTab();
+    if (!active) {
         return;
     }
 
-    const isCreate = !flowState.currentFlowId;
-    const name = document.getElementById('flow-name')?.value.trim() || flowState.currentFlow.name || 'Fluxo sem titulo';
+    const isCreate = !active.flowId;
+    const name = document.getElementById('flow-edit-name')?.value.trim()
+        || active.name
+        || 'Fluxo sem titulo';
     const graph = buildPayloadGraph(name);
     const validationError = validateLocalFlowGraph(graph);
     if (validationError) {
@@ -1286,8 +2435,8 @@ async function saveCurrentFlow() {
     }
 
     try {
-        const endpoint = flowState.currentFlowId
-            ? `/api/projeto/${flowState.projectId}/fluxos/${flowState.currentFlowId}`
+        const endpoint = active.flowId
+            ? `/api/projeto/${flowState.projectId}/fluxos/${active.flowId}`
             : `/api/projeto/${flowState.projectId}/fluxos`;
 
         const data = await api(endpoint, {
@@ -1301,7 +2450,8 @@ async function saveCurrentFlow() {
         }
 
         if (data.flow) {
-            setCurrentFlow(data.flow, false);
+            commitSavedFlowToActiveTab(data.flow);
+            refreshSavedFlowCache(data.flow);
         }
 
         await loadFlowWorkspace(true);
@@ -1377,7 +2527,7 @@ function validateLocalFlowGraph(graph) {
 
 async function generateFlowFromAI() {
     if (!flowState.currentFlow) {
-        newFlow();
+        createBlankFlowTab();
     }
 
     const promptEl = document.getElementById('flow-ai-prompt');
@@ -1439,20 +2589,23 @@ async function generateFlowFromAI() {
 
 function applyGeneratedGraph(graph) {
     const copy = cloneGraph(graph);
-    flowState.currentFlow = {
-        id: flowState.currentFlowId,
-        name: copy.name || 'Fluxo sem titulo',
-        project_id: flowState.projectId,
-        nodes: cloneGraph(copy.nodes || []),
-        edges: cloneGraph(copy.edges || []),
-        created_at: flowState.currentFlow?.created_at || null,
-        updated_at: flowState.currentFlow?.updated_at || null,
-    };
-    flowState.nodes = cloneGraph(copy.nodes || []);
-    flowState.edges = cloneGraph(copy.edges || []);
+    const active = getActiveFlowTab();
+    if (!active) {
+        return;
+    }
+
+    active.name = copy.name || active.name || 'Fluxo sem titulo';
+    active.nodes = cloneGraph(copy.nodes || []);
+    active.edges = cloneGraph(copy.edges || []);
+    active.dirty = true;
+    active.isNew = !active.flowId;
+    flowState.currentFlow = active;
+    flowState.nodes = active.nodes;
+    flowState.edges = active.edges;
     flowState.selectedNodeId = null;
     flowState.secondarySelectedNodeId = null;
     flowState.selectedEdgeId = null;
+    markFlowDirty(true);
     syncFlowName();
     fitFlowView();
 }
@@ -1495,6 +2648,9 @@ function mergeGeneratedGraph(graph) {
     if (copy.name && !flowState.currentFlow?.name) {
         flowState.currentFlow.name = copy.name;
     }
+
+    markFlowDirty(true);
+    renderFlowTabs();
 }
 
 function appendFlowAiLog(role, message) {
@@ -1529,12 +2685,12 @@ function updateDirtyPill() {
 }
 
 function markFlowDirty(value) {
-    flowState.dirty = Boolean(value);
-    updateDirtyPill();
+    markActiveTabDirty(value);
+    renderFlowTabs();
 }
 
 function confirmFlowDiscardIfDirty() {
-    if (!flowState.dirty) {
+    if (!getActiveFlowTab()?.dirty) {
         return true;
     }
     return confirm('Existem alteracoes nao salvas neste fluxo. Deseja descartar e continuar?');
@@ -1542,7 +2698,7 @@ function confirmFlowDiscardIfDirty() {
 
 function ensureFlowGraph() {
     if (!flowState.currentFlow) {
-        newFlow();
+        createBlankFlowTab();
     }
 }
 
@@ -1584,6 +2740,16 @@ window.loadFlowById = loadFlowById;
 window.newFlow = newFlow;
 window.saveCurrentFlow = saveCurrentFlow;
 window.deleteCurrentFlow = deleteCurrentFlow;
+window.openNewFlowModal = openNewFlowModal;
+window.createBlankFlowFromModal = createBlankFlowFromModal;
+window.openFlowSettingsModal = openFlowSettingsModal;
+window.saveFlowSettings = saveFlowSettings;
+window.openExportModal = openExportModal;
+window.importFlowFromText = importFlowFromText;
+window.importFlowFromFile = importFlowFromFile;
+window.exportFlowToPNG = exportFlowToPNG;
+window.exportFlowToJSON = exportFlowToJSON;
+window.exportFlowToMermaid = exportFlowToMermaid;
 window.toggleConnectMode = toggleConnectMode;
 window.toggleCanvasInteractivity = toggleCanvasInteractivity;
 window.zoomFlowCanvasIn = zoomFlowCanvasIn;

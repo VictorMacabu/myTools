@@ -2,8 +2,8 @@
     <div class="flows-toolbar">
         <div>
             <div class="flows-kicker">Fluxos</div>
-            <h2 class="flows-title">Editor visual por projeto</h2>
-            <p class="flows-subtitle">Crie diagramas manualmente, gere com IA e mantenha tudo isolado pelo projeto atual.</p>
+            <h2 class="flows-title">Editor de diagramas</h2>
+            <p class="flows-subtitle">Crie diagramas manualmente, importe arquivos ou gere com ajuda da IA.</p>
         </div>
         <div class="flows-toolbar-actions">
             <button type="button" class="btn btn-secondary" onclick="newFlow()">
@@ -15,16 +15,27 @@
         </div>
     </div>
 
+    <div class="flow-tabs-bar">
+        <div id="flow-tabs" class="flow-tabs" aria-label="Fluxos abertos"></div>
+    </div>
+
     <div class="flows-layout">
         <section class="flow-canvas-panel">
             <div class="flow-panel-header">
-                <div>
+                <div class="flow-panel-header-title">
                     <strong>Canvas</strong>
-                    <span id="flow-dirty-pill" class="flow-dirty-pill hidden">Alterações nao salvas</span>
+                    <span id="flow-current-title" class="flow-current-title">Fluxo sem titulo</span>
+                    <span id="flow-dirty-pill" class="flow-dirty-pill hidden">Alteracoes nao salvas</span>
                 </div>
                 <div class="flow-panel-header-actions">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="openFlowSettingsModal()">
+                        <i class="bi bi-pencil-square"></i> Editar fluxo
+                    </button>
                     <button type="button" class="btn btn-sm btn-secondary" onclick="toggleConnectMode()">
                         <i class="bi bi-bezier2"></i> <span id="flow-connect-label">Conectar nodes</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="openExportModal()">
+                        <i class="bi bi-download"></i> Exportar
                     </button>
                     <button type="button" class="btn btn-sm btn-secondary" onclick="deleteSelectedFlowElement()">
                         <i class="bi bi-trash"></i> Excluir selecionado
@@ -61,29 +72,16 @@
 
         <aside class="flows-sidebar">
             <section class="flow-side-section">
-                <div class="flow-side-title">Fluxo atual</div>
-                <label class="flow-field">
-                    <span>Selecionar fluxo</span>
-                    <select id="flow-select" class="flow-input"></select>
-                </label>
-                <label class="flow-field">
-                    <span>Nome</span>
-                    <input type="text" id="flow-name" class="flow-input" maxlength="255" placeholder="Nome do fluxo">
-                </label>
-                <div class="flow-list" id="flow-list"></div>
-                <div class="flow-side-actions">
-                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteCurrentFlow()">
-                        <i class="bi bi-trash"></i> Excluir fluxo
-                    </button>
-                </div>
+                <div class="flow-side-title">Fluxos do projeto</div>
+                <div class="flow-list" id="flow-library-list"></div>
             </section>
 
             <section class="flow-side-section">
                 <div class="flow-side-title">Nodes</div>
                 <div class="flow-node-palette">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="addFlowNode('start')">Início</button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="addFlowNode('start')">Inicio</button>
                     <button type="button" class="btn btn-sm btn-secondary" onclick="addFlowNode('process')">Processo</button>
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="addFlowNode('decision')">Decisão</button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="addFlowNode('decision')">Decisao</button>
                     <button type="button" class="btn btn-sm btn-secondary" onclick="addFlowNode('end')">Fim</button>
                 </div>
 
@@ -100,9 +98,9 @@
                     <label class="flow-field">
                         <span>Tipo</span>
                         <select id="flow-node-type" class="flow-input">
-                            <option value="start">início</option>
+                            <option value="start">inicio</option>
                             <option value="process">processo</option>
-                            <option value="decision">decisão</option>
+                            <option value="decision">decisao</option>
                             <option value="end">fim</option>
                         </select>
                     </label>
@@ -123,11 +121,11 @@
                 </div>
 
                 <div id="flow-connection-inspector" class="flow-inspector hidden">
-                    <div class="flow-inspector-title">Conexão existente</div>
+                    <div class="flow-inspector-title">Conexao existente</div>
                     <div id="flow-connection-description" class="flow-connection-description"></div>
                     <div class="flow-side-actions">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="editSelectedConnection()">Editar conexão</button>
-                        <button type="button" class="btn btn-sm btn-danger" onclick="removeSelectedConnection()">Remover conexão</button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="editSelectedConnection()">Editar conexao</button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeSelectedConnection()">Remover conexao</button>
                     </div>
                 </div>
 
@@ -164,5 +162,89 @@
                 <div id="flow-ai-log" class="flow-ai-log"></div>
             </section>
         </aside>
+    </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-flow-new">
+    <div class="modal-box flow-modal-box">
+        <span class="modal-close" onclick="closeModal('modal-flow-new')">&times;</span>
+        <div class="modal-title">Novo fluxo</div>
+        <p class="flow-modal-help">Crie um fluxo em branco ou importe um diagrama existente em JSON ou Mermaid.</p>
+
+        <div class="flow-modal-grid">
+            <section class="flow-modal-card">
+                <div class="flow-modal-card-title">Criar em branco</div>
+                <p class="flow-modal-card-text">Abre um novo fluxo vazio para edicao manual.</p>
+                <button type="button" class="btn btn-primary" onclick="createBlankFlowFromModal()">Criar fluxo vazio</button>
+            </section>
+
+            <section class="flow-modal-card">
+                <div class="flow-modal-card-title">Importar arquivo</div>
+                <p class="flow-modal-card-text">Aceita arquivos <code>.json</code>, <code>.mmd</code> ou <code>.mermaid</code>.</p>
+                <input type="file" id="flow-import-file" class="flow-file-input" accept=".json,.mmd,.mermaid,application/json,text/plain" onchange="importFlowFromFile(this)">
+            </section>
+
+            <section class="flow-modal-card flow-modal-card--full">
+                <div class="flow-modal-card-title">Importar JSON</div>
+                <label class="flow-field">
+                    <span>Nome do fluxo</span>
+                    <input type="text" id="flow-import-name" class="flow-input" placeholder="Nome do fluxo importado">
+                </label>
+                <label class="flow-field">
+                    <span>Conteudo JSON</span>
+                    <textarea id="flow-import-json" class="flow-input flow-textarea" rows="8" placeholder='{"nodes": [], "edges": []}'></textarea>
+                </label>
+                <button type="button" class="btn btn-secondary" onclick="importFlowFromText('json')">Importar JSON</button>
+            </section>
+
+            <section class="flow-modal-card flow-modal-card--full">
+                <div class="flow-modal-card-title">Importar Mermaid</div>
+                <label class="flow-field">
+                    <span>Conteudo Mermaid</span>
+                    <textarea id="flow-import-mermaid" class="flow-input flow-textarea" rows="8" placeholder="flowchart TD&#10;n1[Inicio] --> n2[Processo]"></textarea>
+                </label>
+                <button type="button" class="btn btn-secondary" onclick="importFlowFromText('mermaid')">Importar Mermaid</button>
+            </section>
+        </div>
+
+        <div id="flow-import-error" class="flow-modal-error hidden"></div>
+    </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-flow-settings">
+    <div class="modal-box flow-modal-box">
+        <span class="modal-close" onclick="closeModal('modal-flow-settings')">&times;</span>
+        <div class="modal-title">Editar fluxo</div>
+        <p class="flow-modal-help">Altere o nome do fluxo ativo e mantenha a aba sincronizada.</p>
+
+        <label class="flow-field">
+            <span>Nome</span>
+            <input type="text" id="flow-edit-name" class="flow-input" maxlength="255" placeholder="Nome do fluxo">
+        </label>
+
+        <div class="flow-modal-actions">
+            <button type="button" class="btn btn-primary" onclick="saveFlowSettings()">Salvar alteracoes</button>
+            <button type="button" class="btn btn-danger" onclick="deleteCurrentFlow()">Excluir fluxo</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-flow-export">
+    <div class="modal-box flow-modal-box">
+        <span class="modal-close" onclick="closeModal('modal-flow-export')">&times;</span>
+        <div class="modal-title">Exportar fluxo</div>
+        <p class="flow-modal-help">Escolha o formato de exportacao do fluxo ativo.</p>
+
+        <div class="flow-modal-actions flow-modal-actions--stack">
+            <button type="button" class="btn btn-secondary" onclick="exportFlowToPNG()">
+                <i class="bi bi-file-earmark-image"></i> Exportar PNG
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="exportFlowToJSON()">
+                <i class="bi bi-braces"></i> Exportar JSON
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="exportFlowToMermaid()">
+                <i class="bi bi-diagram-3"></i> Exportar Mermaid
+            </button>
+        </div>
     </div>
 </div>
